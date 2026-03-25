@@ -1,0 +1,6 @@
+create DATABASE Diet_tracker;
+use Diet_tracker;
+
+
+create table meals (meal_id INT PRIMARY KEY,
+meal_date DATE, meal_time TIME, meal_food VARCHAR(40), calories INT);
