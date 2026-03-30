@@ -15,6 +15,10 @@ const medicineSchema = new mongoose.Schema(
             type: Date,
             required: true,
         },
+        price: {
+            type: Number,
+            default: 0,
+        },
     },
     { timestamps: true }
 );

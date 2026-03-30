@@ -8,14 +8,23 @@ const consultationSchema = new mongoose.Schema(
         },
         doctor: {
             type: String,
-            required: true,
+        },
+        doctorId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
         },
         diagnosis: {
             type: String,
         },
         prescription: {
             type: String,
-        }
+        },
+        medicines: [
+            {
+                name: String,
+                quantity: Number
+            }
+        ]
     },
     { timestamps: true }
 );

@@ -1,15 +1,26 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
 
 const {
   createConsultation,
   getConsultationsByUpid,
-} = require('../../controllers/consultation.controller');
+} = require("../../controllers/consultation.controller");
 
-// CREATE
-router.post('/', createConsultation);
+const { authMiddleware } = require("../../middlewares/auth.middleware");
+const { roleMiddleware } = require("../../middlewares/role.middleware");
 
-// GET BY UPID
-router.get('/:upid', getConsultationsByUpid);
+router.post(
+  "/",
+  authMiddleware,
+  roleMiddleware("Doctor"),
+  createConsultation
+);
+
+router.get(
+  "/:upid",
+  authMiddleware,
+  roleMiddleware("Doctor"),
+  getConsultationsByUpid
+);
 
 module.exports = router;

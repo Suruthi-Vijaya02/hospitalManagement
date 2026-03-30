@@ -1,5 +1,6 @@
 const LabTest = require('../models/LabTest.model');
 const Patient = require('../models/Patient.model');
+const Lab = require('../models/Lab.model'); 
 
 // Create lab test (accept UPID, convert to patientId)
 exports.createLabTest = async (req, res) => {
@@ -30,26 +31,49 @@ exports.createLabTest = async (req, res) => {
 // Upload lab report (handle file upload using multer, store file path)
 exports.uploadLabReport = async (req, res) => {
   try {
-    const { testId } = req.body;
+    const { labId, testId } = req.body;
 
-    if (!testId) {
-      return res.status(400).json({ success: false, message: 'testId is required.' });
+    if (!labId || !testId) {
+      return res.status(400).json({ success: false, message: 'labId and testId are required.' });
     }
 
     if (!req.file) {
       return res.status(400).json({ success: false, message: 'Report file is required.' });
     }
 
-    const labTest = await LabTest.findById(testId);
-    if (!labTest) {
-      return res.status(404).json({ success: false, message: 'LabTest not found.' });
+    const labEntry = await Lab.findById(labId);
+    if (!labEntry) {
+      return res.status(404).json({ success: false, message: 'Lab entry not found.' });
     }
 
-    labTest.reportUrl = req.file.path;
-    labTest.status = 'Completed';
-    await labTest.save();
+    const testToUpdate = labEntry.tests.id(testId);
+    if (!testToUpdate) {
+      return res.status(404).json({ success: false, message: 'Test not found within this lab entry.' });
+    }
 
-    return res.status(200).json({ success: true, data: labTest });
+    // Replace backslashes since Windows multer path saves with backslashes
+    testToUpdate.reportUrl = req.file.path.replace(/\\/g, '/');
+    testToUpdate.status = 'Completed';
+    await labEntry.save();
+
+    return res.status(200).json({ success: true, data: labEntry });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Create a new Master Lab Test (Pre-logged by Admin/Lab)
+exports.createMasterTest = async (req, res) => {
+  try {
+    const { name, price } = req.body;
+    if (!name || isNaN(price)) {
+      return res.status(400).json({ success: false, message: 'Name and valid numeric price are required.' });
+    }
+
+    const test = new LabTest({ name, price: Number(price) });
+    await test.save();
+
+    return res.status(201).json({ success: true, data: test });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }
@@ -67,6 +91,122 @@ exports.getLabReportsByPatient = async (req, res) => {
 
     const labTests = await LabTest.find({ patientId: patient._id });
     return res.status(200).json({ success: true, data: labTests });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// ----------------------------------------------------
+// NEW ADDED CONTROLLER FUNCTIONS BELOW
+// ----------------------------------------------------
+
+// Fetch all the master lab tests
+exports.getTests = async (req, res) => {
+  try {
+    const tests = await LabTest.find();
+    return res.status(200).json({ success: true, data: tests });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Create a new lab entry for a patient with selected test IDs
+exports.createLab = async (req, res) => {
+  try {
+    const { upid, testIds } = req.body;
+
+    if (!upid || !testIds || !Array.isArray(testIds)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'UPID and an array of testIds are required.' 
+      });
+    }
+
+    const selectedTests = await LabTest.find({ _id: { $in: testIds } });
+
+    if (selectedTests.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        message: 'No valid tests found from the provided testIds.' 
+      });
+    }
+
+    const testEntries = selectedTests.map(t => ({
+      testId: t._id,
+      name: t.name,
+      price: t.price,
+      status: 'Pending',
+      reportUrl: null
+    }));
+
+    const labEntry = new Lab({
+      upid,
+      tests: testEntries
+    });
+
+    await labEntry.save();
+
+    return res.status(201).json({ success: true, data: labEntry });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Update status and/or reportUrl of a specific test inside a lab entry
+exports.updateStatus = async (req, res) => {
+  try {
+    const { labId, testId, status, reportUrl } = req.body;
+
+    if (!labId || !testId || !status) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'labId, testId, and status are required to update.' 
+      });
+    }
+
+    const labEntry = await Lab.findById(labId);
+    if (!labEntry) {
+      return res.status(404).json({ success: false, message: 'Lab entry not found.' });
+    }
+
+    // Find the specific test inside the tests array
+    const testToUpdate = labEntry.tests.id(testId);
+    if (!testToUpdate) {
+      return res.status(404).json({ success: false, message: 'Test not found within this lab entry.' });
+    }
+
+    // Update the fields
+    if (['Pending', 'Completed'].includes(status)) {
+      testToUpdate.status = status;
+    }
+    
+    if (reportUrl !== undefined) {
+      testToUpdate.reportUrl = reportUrl;
+    }
+
+    await labEntry.save();
+
+    return res.status(200).json({ success: true, data: labEntry });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Fetch Lab entries for a specific patient
+exports.getPatientLabs = async (req, res) => {
+  try {
+    const { upid } = req.params;
+    const labs = await Lab.find({ upid }).sort({ createdAt: -1 });
+    return res.status(200).json({ success: true, data: labs });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+// Fetch all Lab entries that have at least one 'Pending' test
+exports.getLabQueue = async (req, res) => {
+  try {
+    const labs = await Lab.find({ "tests.status": "Pending" }).sort({ createdAt: -1 });
+    return res.status(200).json({ success: true, data: labs });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }

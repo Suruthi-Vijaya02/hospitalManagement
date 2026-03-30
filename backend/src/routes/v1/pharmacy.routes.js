@@ -1,19 +1,14 @@
-const express = require('express');
+const express = require("express");
 const router = express.Router();
 
-const {
-    createPharmacyEntry,
-    getByPatient,
-    markAsIssued,
-} = require('../../controllers/pharmacy.controller');
+const { getQueue, issueMedicine } = require("../../controllers/pharmacy.controller");
+const { authMiddleware } = require("../../middlewares/auth.middleware");
+const { roleMiddleware } = require("../../middlewares/role.middleware");
 
-// POST /pharmacy
-router.post('/', createPharmacyEntry);
+// GET /api/v1/pharmacy/queue
+router.get("/queue", authMiddleware, getQueue);
 
-// GET /pharmacy/:upid
-router.get('/:upid', getByPatient);
-
-// PUT /pharmacy/:id/issue
-router.put('/:id/issue', markAsIssued);
+// PUT /api/v1/pharmacy/issue
+router.put("/issue", authMiddleware, roleMiddleware("Pharmacist"), issueMedicine);
 
 module.exports = router;

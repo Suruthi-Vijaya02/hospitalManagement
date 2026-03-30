@@ -1,96 +1,56 @@
-const Pharmacy = require('../models/pharmacy.model');
-const Patient = require('../models/Patient.model');
+const PharmacyQueue = require("../models/PharmacyQueue.model");
+const Medicine = require("../models/Medicine.model");
 
-// Create pharmacy entry (using UPID)
-exports.createPharmacyEntry = async (req, res) => {
+exports.getQueue = async (req, res) => {
     try {
-        const { upid, medicines } = req.body;
-
-        if (!upid || !medicines || medicines.length === 0) {
-            return res.status(400).json({
-                success: false,
-                message: 'UPID and medicines are required',
-            });
-        }
-
-        const patient = await Patient.findOne({ upid });
-        if (!patient) {
-            return res.status(404).json({
-                success: false,
-                message: 'Patient not found',
-            });
-        }
-
-        const entry = new Pharmacy({
-            patientId: patient._id,
-            medicines,
-        });
-
-        await entry.save();
-
-        return res.status(201).json({
-            success: true,
-            data: entry,
-        });
+        const data = await PharmacyQueue.find().sort({ createdAt: -1 });
+        res.json({ success: true, data });
     } catch (error) {
-        return res.status(500).json({
-            success: false,
-            message: error.message,
-        });
+        res.status(500).json({ success: false, message: error.message });
     }
 };
 
-// Get pharmacy entries by patient
-exports.getByPatient = async (req, res) => {
+exports.issueMedicine = async (req, res) => {
     try {
-        const { upid } = req.params;
+        const { queueId, index } = req.body;
 
-        const patient = await Patient.findOne({ upid });
-        if (!patient) {
-            return res.status(404).json({
-                success: false,
-                message: 'Patient not found',
-            });
+        const queue = await PharmacyQueue.findById(queueId);
+        if (!queue) {
+            return res.status(404).json({ success: false, message: 'Queue not found' });
         }
 
-        const entries = await Pharmacy.find({ patientId: patient._id });
-
-        return res.status(200).json({
-            success: true,
-            data: entries,
-        });
-    } catch (error) {
-        return res.status(500).json({
-            success: false,
-            message: error.message,
-        });
-    }
-};
-
-// Mark as issued
-exports.markAsIssued = async (req, res) => {
-    try {
-        const { id } = req.params;
-
-        const entry = await Pharmacy.findById(id);
-        if (!entry) {
-            return res.status(404).json({
-                success: false,
-                message: 'Entry not found',
-            });
+        const med = queue.medicines[index];
+        if (!med) {
+            return res.status(404).json({ success: false, message: 'Medicine index not found' });
         }
 
-        entry.status = 'Issued';
-        await entry.save();
+        if (med.status === "Issued") {
+            return res.status(400).json({ success: false, message: 'Medicine is already issued' });
+        }
 
-        return res.status(200).json({
-            success: true,
-            data: entry,
-        });
+        // 🔥 REDUCE INVENTORY & ATTACH PRICE
+        const inventory = await Medicine.findOne({ medicineName: med.name });
+        if (inventory) {
+            if (inventory.stock < med.quantity) {
+                 return res.status(400).json({ success: false, message: 'Not enough stock in inventory!' });
+            }
+            inventory.stock -= med.quantity;
+            med.price = inventory.price || 0; // Lock in the current price
+            await inventory.save();
+        } else {
+            return res.status(404).json({ success: false, message: `Medicine "${med.name}" not found in inventory` });
+        }
+
+        med.status = "Issued";
+
+        // check if all issued
+        const allDone = queue.medicines.every((m) => m.status === "Issued");
+        if (allDone) queue.status = "Completed";
+
+        await queue.save();
+
+        res.json({ success: true, data: queue });
     } catch (error) {
-        return res.status(500).json({
-            success: false,
-            message: error.message,
-        });
+        res.status(500).json({ success: false, message: error.message });
     }
 };

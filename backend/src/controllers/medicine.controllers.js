@@ -3,12 +3,18 @@ const Medicine = require('../models/Medicine.model');
 // Add medicine
 exports.addMedicine = async (req, res) => {
     try {
-        const { medicineName, stock, expiryDate } = req.body;
+        const { medicineName, stock, expiryDate, price } = req.body;
 
-        if (!medicineName || !expiryDate) {
+        if (!medicineName) {
             return res.status(400).json({
                 success: false,
-                message: 'medicineName and expiryDate are required',
+                message: 'medicineName is required',
+            });
+        }
+        if (!expiryDate) {
+            return res.status(400).json({
+                success: false,
+                message: ' expiryDate is required',
             });
         }
 
@@ -16,6 +22,7 @@ exports.addMedicine = async (req, res) => {
             medicineName,
             stock,
             expiryDate,
+            price,
         });
 
         await medicine.save();

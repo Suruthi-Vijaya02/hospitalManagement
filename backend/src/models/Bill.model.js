@@ -7,6 +7,10 @@ const billSchema = new mongoose.Schema(
             ref: 'Patient',
             required: true,
         },
+        upid: {
+            type: String,
+            required: true,
+        },
         consultationFee: {
             type: Number,
             default: 0,
@@ -22,6 +26,15 @@ const billSchema = new mongoose.Schema(
         totalAmount: {
             type: Number,
             required: true,
+        },
+        amountPaid: {
+            type: Number,
+            default: 0,
+        },
+        status: {
+            type: String,
+            enum: ['Unpaid', 'Partial', 'Paid'],
+            default: 'Unpaid',
         },
     },
     { timestamps: true }

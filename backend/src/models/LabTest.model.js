@@ -1,24 +1,14 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
 const labTestSchema = new mongoose.Schema({
-  patientId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Patient',
-    required: true
-  },
-  testName: {
+  name: {
     type: String,
-    required: true
+    required: true,
   },
-  reportUrl: {
-    type: String,
-    default: null
+  price: {
+    type: Number,
+    required: true,
   },
-  status: {
-    type: String,
-    enum: ['Pending', 'Completed'],
-    default: 'Pending'
-  }
-}, { timestamps: true });
+});
 
-module.exports = mongoose.model('LabTest', labTestSchema);
+module.exports = mongoose.model("LabTest", labTestSchema);
