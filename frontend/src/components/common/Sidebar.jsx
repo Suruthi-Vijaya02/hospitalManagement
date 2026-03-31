@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import useAuthStore from "@/store/auth.store";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { 
     Users, 
@@ -28,6 +28,12 @@ const iconMap = {
 export default function Sidebar() {
     const { user, logout } = useAuthStore();
     const pathname = usePathname();
+    const router = useRouter();
+
+    const handleLogout = () => {
+        logout();
+        router.push("/login");
+    };
 
     const role = user?.role;
 
@@ -114,7 +120,7 @@ export default function Sidebar() {
                     </div>
                 </div>
                 <button
-                    onClick={logout}
+                    onClick={handleLogout}
                     className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-sm font-bold text-slate-400 hover:text-white hover:bg-red-500/10 hover:text-red-400 transition-all group"
                 >
                     <LogOut className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />

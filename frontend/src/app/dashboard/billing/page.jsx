@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import api from "@/lib/axios";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
@@ -23,7 +23,27 @@ export default function BillingPage() {
     const [loading, setLoading] = useState(false);
     const [paymentAmount, setPaymentAmount] = useState("");
     const [paying, setPaying] = useState(false);
+    const [bills, setBills] = useState([]);
+    const [loadingBills, setLoadingBills] = useState(false);
     const [errorMsg, setErrorMsg] = useState("");
+
+    const fetchRecentBills = async () => {
+        setLoadingBills(true);
+        try {
+            const res = await api.get("/billing");
+            if (res.data?.success) {
+                setBills(res.data.data);
+            }
+        } catch (err) {
+            console.error("Failed to fetch recent bills", err);
+        } finally {
+            setLoadingBills(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchRecentBills();
+    }, []);
 
     const fetchBill = async () => {
         if (!upid) return;
@@ -54,6 +74,7 @@ export default function BillingPage() {
             if (res.data?.success) {
                 setPaymentAmount("");
                 fetchBill();
+                fetchRecentBills();
             }
         } catch (err) { 
             console.error(err);
@@ -262,14 +283,86 @@ export default function BillingPage() {
                     <motion.div 
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        className="flex flex-col items-center justify-center py-20 text-center space-y-6"
+                        className="space-y-10"
                     >
-                        <div className="w-24 h-24 bg-slate-100 dark:bg-slate-900 rounded-[2.5rem] flex items-center justify-center text-slate-300 dark:text-slate-800">
-                             <ReceiptText className="w-12 h-12" />
+                        <div className="flex flex-col items-center justify-center py-10 text-center space-y-6">
+                            <div className="w-24 h-24 bg-slate-100 dark:bg-slate-900 rounded-[2.5rem] flex items-center justify-center text-slate-300 dark:text-slate-800">
+                                 <ReceiptText className="w-12 h-12" />
+                            </div>
+                            <div className="max-w-xs">
+                                 <h3 className="text-xl font-bold text-slate-900 dark:text-white">Ready to Reconcile</h3>
+                                 <p className="text-slate-400 text-sm mt-2">Enter a valid Patient UPID above to pull current financial records.</p>
+                            </div>
                         </div>
-                        <div className="max-w-xs">
-                             <h3 className="text-xl font-bold text-slate-900 dark:text-white">Ready to Reconcile</h3>
-                             <p className="text-slate-400 text-sm mt-2">Enter a valid Patient UPID above to pull current financial records.</p>
+
+                        {/* Recent Bills List */}
+                        <div className="max-w-5xl mx-auto space-y-6">
+                            <h3 className="text-xl font-bold text-slate-900 dark:text-white px-2">Recent Invoices</h3>
+                            {loadingBills ? (
+                                <p className="text-slate-500 text-center py-4">Loading invoices...</p>
+                            ) : bills.length > 0 ? (
+                                <div className="glass-card overflow-hidden border border-slate-200 dark:border-white/10 rounded-2xl">
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-left border-collapse">
+                                            <thead>
+                                                <tr className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-800">
+                                                    <th className="py-4 px-6 text-xs font-bold text-slate-400 uppercase tracking-wider">Patient UPID</th>
+                                                    <th className="py-4 px-6 text-xs font-bold text-slate-400 uppercase tracking-wider">Patient Name</th>
+                                                    <th className="py-4 px-6 text-xs font-bold text-slate-400 uppercase tracking-wider text-right">Total Amount</th>
+                                                    <th className="py-4 px-6 text-xs font-bold text-slate-400 uppercase tracking-wider text-right">Amount Paid</th>
+                                                    <th className="py-4 px-6 text-xs font-bold text-slate-400 uppercase tracking-wider text-center">Status</th>
+                                                    <th className="py-4 px-6 text-xs font-bold text-slate-400 uppercase tracking-wider text-right">Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {bills.map((b) => (
+                                                    <tr key={b._id} className="border-b border-slate-50 dark:border-slate-800/50 hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors group">
+                                                        <td className="py-4 px-6 font-mono font-bold text-slate-900 dark:text-white text-sm">{b.upid}</td>
+                                                        <td className="py-4 px-6 text-slate-600 dark:text-slate-300 font-medium text-sm">{b.patientId?.name || "Unknown"}</td>
+                                                        <td className="py-4 px-6 text-slate-900 dark:text-white font-bold text-right">₹{b.totalAmount?.toLocaleString()}</td>
+                                                        <td className="py-4 px-6 text-emerald-500 font-medium text-right">₹{b.amountPaid?.toLocaleString()}</td>
+                                                        <td className="py-4 px-6 text-center">
+                                                            <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
+                                                                b.status === "Paid" ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : 
+                                                                b.status === "Partial" ? "bg-amber-500/10 text-amber-500 border-amber-500/20" : 
+                                                                "bg-rose-500/10 text-rose-500 border-rose-500/20"
+                                                            }`}>
+                                                                {b.status}
+                                                            </span>
+                                                        </td>
+                                                        <td className="py-4 px-6 text-right">
+                                                            <button 
+                                                                onClick={() => {
+                                                                    setUpid(b.upid);
+                                                                    // We can directly call fetchBill after state update with a small delay or use useEffect
+                                                                    setTimeout(() => {
+                                                                        const fetchBillByUpid = async () => {
+                                                                            setLoading(true); setErrorMsg(""); setBill(null);
+                                                                            try {
+                                                                                const res = await api.get(`/billing/${b.upid}`);
+                                                                                if (res.data?.success) setBill(res.data.data);
+                                                                            } catch (err) { setErrorMsg("Failed."); } finally { setLoading(false); }
+                                                                        };
+                                                                        fetchBillByUpid();
+                                                                    }, 100);
+                                                                }}
+                                                                className="text-primary hover:text-primary/80 font-bold text-sm"
+                                                            >
+                                                                View
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="text-center py-10 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800">
+                                    <History className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                                    <p className="text-slate-500 font-medium">No recent invoices found.</p>
+                                </div>
+                            )}
                         </div>
                     </motion.div>
                 )}

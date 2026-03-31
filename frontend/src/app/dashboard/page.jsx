@@ -22,9 +22,11 @@ import {
     Settings,
     LayoutDashboard
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 export default function DashboardHome() {
     const { user } = useAuthStore();
+    const router = useRouter();
     const [liveStats, setLiveStats] = useState(null);
     const [loading, setLoading] = useState(true);
 
@@ -229,6 +231,7 @@ export default function DashboardHome() {
                         {actions.map((action, idx) => (
                             <motion.button 
                                 key={idx} 
+                                onClick={() => router.push(action.link)}
                                 whileHover={{ scale: 1.02 }}
                                 whileTap={{ scale: 0.98 }}
                                 className="group p-8 bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 text-left hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all duration-300 relative overflow-hidden"

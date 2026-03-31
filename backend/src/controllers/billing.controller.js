@@ -30,7 +30,7 @@ exports.generateBill = async (req, res) => {
         let medicineTotal = 0;
 
         pharmacy.forEach((p) => {
-            p.medicines.forEach((m) => {
+            p.medicines?.forEach((m) => {
                 if (m.status === "Issued") {
                     medicineTotal += (m.price || 10) * m.quantity; // fallback price
                 }
@@ -82,6 +82,8 @@ exports.generateBill = async (req, res) => {
         res.json({
             success: true,
             data: {
+                upid: patient.upid,
+                patientName: patient.name,
                 consultationFee,
                 labTotal,
                 medicineTotal,
