@@ -251,7 +251,7 @@ export default function BillingPage() {
                                                         <input 
                                                             type="number" 
                                                             placeholder="Enter reconciliation amount" 
-                                                            className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-4 pl-12 pr-6 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium"
+                                                            className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-4 pl-12 pr-6 text-sm outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium dark:text-white"
                                                             value={paymentAmount}
                                                             onChange={(e) => setPaymentAmount(e.target.value)}
                                                         />

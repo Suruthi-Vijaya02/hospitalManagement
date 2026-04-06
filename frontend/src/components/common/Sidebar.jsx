@@ -13,7 +13,8 @@ import {
     Package, 
     LogOut,
     Activity,
-    ChevronRight
+    ChevronRight,
+    Shield
 } from "lucide-react";
 
 const iconMap = {
@@ -22,7 +23,8 @@ const iconMap = {
     Consultation: Stethoscope,
     Lab: Beaker,
     Pharmacy: ShoppingBag,
-    Inventory: Package
+    Inventory: Package,
+    "Admin Terminal": Shield
 };
 
 export default function Sidebar() {
@@ -51,6 +53,9 @@ export default function Sidebar() {
         Pharmacist: [
             { name: "Pharmacy", path: "/dashboard/pharmacy" },
             { name: "Inventory", path: "/dashboard/inventory" },
+        ],
+        Admin: [
+            { name: "Admin Terminal", path: "/dashboard/admin" },
         ],
     };
 

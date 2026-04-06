@@ -11,21 +11,20 @@ export default function RegisterPage() {
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
-    const [role, setRole] = useState("Doctor");
     const [loading, setLoading] = useState(false);
 
     const setAuth = useAuthStore((state) => state.setAuth);
     const router = useRouter();
 
     const handleRegister = async () => {
-        if (!name || !email || !password || !role) {
+        if (!name || !email || !password) {
             alert("Please fill all fields");
             return;
         }
 
         try {
             setLoading(true);
-            const res = await registerUser({ name, email, password, role });
+            const res = await registerUser({ name, email, password });
 
             if (res.success) {
                 if (res.token) {
@@ -35,10 +34,10 @@ export default function RegisterPage() {
                     router.push("/login");
                 }
             } else {
-                alert(res.message || "Registration failed");
+                alert(res.error || "Registration failed");
             }
         } catch (err) {
-            alert(err?.response?.data?.message || "Registration failed");
+            alert(err?.response?.data?.error || "Registration failed");
         } finally {
             setLoading(false);
         }
@@ -113,7 +112,7 @@ export default function RegisterPage() {
                                 <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
                                 <input
                                     type="text"
-                                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl py-4 pl-12 pr-4 focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all shadow-sm"
+                                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl py-4 pl-12 pr-4 focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all shadow-sm dark:text-white"
                                     placeholder="Dr. Julian Vane"
                                     value={name}
                                     onChange={(e) => setName(e.target.value)}
@@ -127,7 +126,7 @@ export default function RegisterPage() {
                                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
                                 <input
                                     type="email"
-                                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl py-4 pl-12 pr-4 focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all shadow-sm"
+                                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl py-4 pl-12 pr-4 focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all shadow-sm dark:text-white"
                                     placeholder="j.vane@hospital.com"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
@@ -135,39 +134,21 @@ export default function RegisterPage() {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <label className="text-sm font-semibold text-foreground/80 ml-1">Identity</label>
-                                <div className="relative">
-                                    <select
-                                        className="w-full appearance-none bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl py-4 px-4 focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all shadow-sm cursor-pointer"
-                                        value={role}
-                                        onChange={(e) => setRole(e.target.value)}
-                                    >
-                                        <option value="Doctor">Doctor</option>
-                                        <option value="Receptionist">Receptionist</option>
-                                        <option value="Pharmacist">Pharmacist</option>
-                                        <option value="Lab">Lab Specialist</option>
-                                    </select>
-                                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground text-xs font-bold uppercase tracking-widest">
-                                        ▼
-                                    </div>
-                                </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-semibold text-foreground/80 ml-1">Access Key</label>
+                            <div className="relative group">
+                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                                <input
+                                    type="password"
+                                    className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl py-4 pl-12 pr-4 focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all shadow-sm dark:text-white"
+                                    placeholder="••••••••"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                />
                             </div>
-
-                            <div className="space-y-2">
-                                <label className="text-sm font-semibold text-foreground/80 ml-1">Access Key</label>
-                                <div className="relative group">
-                                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                                    <input
-                                        type="password"
-                                        className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl py-4 pl-12 pr-4 focus:ring-4 focus:ring-primary/10 focus:border-primary outline-none transition-all shadow-sm"
-                                        placeholder="••••••••"
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                    />
-                                </div>
-                            </div>
+                            <p className="text-[10px] text-muted-foreground font-medium mt-2 px-1 italic">
+                                * Your account will be created with restricted access. An administrator will assign your professional role after verification.
+                            </p>
                         </div>
 
                         <button

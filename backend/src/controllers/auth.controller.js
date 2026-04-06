@@ -1,29 +1,31 @@
-const User = require('../models/User.model');
+const ErrorResponse = require("../utils/errorResponse");
+const User = require("../models/User.model");
 
 // @desc    Register a user
 // @route   POST /api/v1/auth/register
 // @access  Public
 exports.register = async (req, res, next) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password } = req.body;
+    // Note: 'role' is removed from destructuring to prevent unauthorized assignment.
 
     // Check if user exists
     const userExists = await User.findOne({ email });
     if (userExists) {
-      return res.status(400).json({ success: false, error: 'Email already exists' });
+      return next(new ErrorResponse("Email already exists", 400));
     }
 
-    // Create user
+    // Create user with default role 'Receptionist'
     const user = await User.create({
       name,
       email,
       password,
-      role
+      role: "Receptionist",
     });
 
     sendTokenResponse(user, 201, res);
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    next(error);
   }
 };
 
@@ -36,26 +38,26 @@ exports.login = async (req, res, next) => {
 
     // Validate email & password
     if (!email || !password) {
-      return res.status(400).json({ success: false, error: 'Please provide an email and password' });
+      return next(new ErrorResponse("Please provide an email and password", 400));
     }
 
     // Check for user (include password, since select is false in schema)
-    const user = await User.findOne({ email }).select('+password');
+    const user = await User.findOne({ email }).select("+password");
 
     if (!user) {
-      return res.status(401).json({ success: false, error: 'Invalid credentials' });
+      return next(new ErrorResponse("Invalid credentials", 401));
     }
 
     // Check if password matches
     const isMatch = await user.matchPassword(password);
 
     if (!isMatch) {
-      return res.status(401).json({ success: false, error: 'Invalid credentials' });
+      return next(new ErrorResponse("Invalid credentials", 401));
     }
 
     sendTokenResponse(user, 200, res);
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    next(error);
   }
 };
 
@@ -65,12 +67,64 @@ exports.login = async (req, res, next) => {
 exports.getMe = async (req, res, next) => {
   try {
     const user = await User.findById(req.user.id);
+    if (!user) {
+      return next(new ErrorResponse("No user found with this id", 404));
+    }
     res.status(200).json({
       success: true,
-      data: user
+      data: user,
     });
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    next(error);
+  }
+};
+
+// @desc    Update user role (Admin only)
+// @route   PUT /api/v1/auth/users/:id/role
+// @access  Private/Admin
+exports.updateUserRole = async (req, res, next) => {
+  try {
+    const { role } = req.body;
+
+    // Check if role is valid
+    if (!["Admin", "Receptionist", "Doctor", "Lab", "Pharmacist"].includes(role)) {
+      return next(new ErrorResponse("Please provide a valid role", 400));
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      { role },
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
+
+    if (!user) {
+       return next(new ErrorResponse("No user found with this id", 404));
+    }
+
+    res.status(200).json({
+      success: true,
+      data: user,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Get all users (Admin only)
+// @route   GET /api/v1/auth/users
+// @access  Private/Admin
+exports.getUsers = async (req, res, next) => {
+  try {
+    const users = await User.find();
+    res.status(200).json({
+      success: true,
+      data: users,
+    });
+  } catch (error) {
+    next(error);
   }
 };
 
@@ -86,7 +140,7 @@ const sendTokenResponse = (user, statusCode, res) => {
       id: user._id,
       name: user.name,
       email: user.email,
-      role: user.role
-    }
+      role: user.role,
+    },
   });
 };

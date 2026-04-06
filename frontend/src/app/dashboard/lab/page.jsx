@@ -157,14 +157,14 @@ export default function LabPage() {
                         <div className="flex gap-3">
                             <input 
                                 placeholder="Investigation name" 
-                                className="flex-1 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-xs outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium"
+                                className="flex-1 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-xs outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium dark:text-white"
                                 value={newTestName} 
                                 onChange={(e) => setNewTestName(e.target.value)} 
                             />
                             <input 
                                 placeholder="Price" 
                                 type="number"
-                                className="w-20 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-xs outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium"
+                                className="w-20 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-xs outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium dark:text-white"
                                 value={newTestPrice} 
                                 onChange={(e) => setNewTestPrice(e.target.value)} 
                             />
@@ -192,7 +192,7 @@ export default function LabPage() {
                                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-primary transition-colors" />
                                     <input 
                                         placeholder="ENTER UPID (PAT2026...)"
-                                        className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl py-4 pl-11 pr-4 text-sm font-bold tracking-widest outline-none focus:ring-2 focus:ring-primary/20 transition-all uppercase shadow-inner" 
+                                        className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl py-4 pl-11 pr-4 text-sm font-bold tracking-widest outline-none focus:ring-2 focus:ring-primary/20 transition-all uppercase shadow-inner dark:text-white" 
                                         value={upid} 
                                         onChange={(e) => setUpid(e.target.value.toUpperCase())}
                                         onKeyDown={(e) => e.key === 'Enter' && fetchPatientLabs()}
@@ -322,7 +322,7 @@ export default function LabPage() {
                                                 <div className="flex items-center gap-3">
                                                     {test.reportUrl && (
                                                         <a 
-                                                            href={`http://localhost:5000/${test.reportUrl}`} 
+                                                            href={`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'}/${test.reportUrl}`} 
                                                             target="_blank" rel="noreferrer" 
                                                             className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 text-primary text-[10px] font-bold rounded-lg hover:bg-primary hover:text-white transition-all shadow-sm"
                                                         >

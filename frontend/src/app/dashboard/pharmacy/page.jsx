@@ -93,7 +93,7 @@ export default function PharmacyPage() {
                         <input 
                             type="text" 
                             placeholder="Find by UPID..." 
-                            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl py-3 pl-10 pr-4 text-sm w-full md:w-64 focus:ring-2 focus:ring-primary/20 transition-all outline-none uppercase font-mono tracking-wider"
+                            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl py-3 pl-10 pr-4 text-sm w-full md:w-64 focus:ring-2 focus:ring-primary/20 transition-all outline-none uppercase font-mono tracking-wider dark:text-white"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />

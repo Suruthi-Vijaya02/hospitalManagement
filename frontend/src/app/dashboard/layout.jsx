@@ -50,7 +50,7 @@ export default function DashboardLayout({ children }) {
                             <input 
                                 type="text" 
                                 placeholder="Universal Search..." 
-                                className="bg-slate-100 dark:bg-slate-800 border-none rounded-full py-2.5 pl-10 pr-4 text-sm w-64 focus:ring-2 focus:ring-primary/20 transition-all outline-none"
+                                className="bg-slate-100 dark:bg-slate-800 border-none rounded-full py-2.5 pl-10 pr-4 text-sm w-64 focus:ring-2 focus:ring-primary/20 transition-all outline-none dark:text-white"
                             />
                         </div>
                     </div>
