@@ -1,350 +1,349 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import api from "@/lib/axios";
-import { motion, AnimatePresence } from "framer-motion";
+import { useRouter } from "next/navigation";
 import { 
-    Stethoscope, 
-    Clipboard, 
-    Pill, 
-    Beaker, 
-    Plus, 
-    Trash2, 
-    CheckCircle2, 
-    AlertCircle,
-    ChevronRight,
-    ArrowRightCircle,
-    History
+  Stethoscope, AlertCircle, Loader2, Sparkles, User, Activity, Clock, FilePlus, Search, Beaker
 } from "lucide-react";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
+import { getPatient, getPatients } from "@/services/patient.service";
+import api from "@/lib/axios";
+
+function SectionHeader({ icon: Icon, title, description }) {
+    return (
+        <CardHeader className="pb-4">
+            <div className="flex items-center gap-2">
+                {Icon && <Icon className="w-5 h-5 text-muted-foreground" />}
+                <CardTitle className="text-xl font-semibold">{title}</CardTitle>
+            </div>
+            {description && <CardDescription className="mt-1">{description}</CardDescription>}
+        </CardHeader>
+    );
+}
+
+function VitalsItem({ label, value, subValue }) {
+    return (
+        <Card className="shadow-none bg-slate-50/50 dark:bg-slate-900/50">
+            <CardContent className="p-4">
+                <p className="text-sm text-muted-foreground font-medium uppercase tracking-wider mb-1">{label}</p>
+                <p className="text-xl font-semibold text-foreground">
+                    {value} {subValue && <span className="text-sm font-normal text-muted-foreground">{subValue}</span>}
+                </p>
+            </CardContent>
+        </Card>
+    );
+}
 
 export default function ConsultationsPage() {
+    const router = useRouter();
+    
+    // Patient Search State
     const [upid, setUpid] = useState("");
+    const [patientData, setPatientData] = useState(null);
+    const [patientLoading, setPatientLoading] = useState(false);
+
+    // Fetch all patients state
+    const [patients, setPatients] = useState([]);
+    const [patientsLoading, setPatientsLoading] = useState(false);
+
+    // Consultation Form State
+    const [symptoms, setSymptoms] = useState("");
     const [diagnosis, setDiagnosis] = useState("");
-    const [medicines, setMedicines] = useState([]);
+    const [prescription, setPrescription] = useState("");
+    const [notes, setNotes] = useState("");
     
-    const [availableMedicines, setAvailableMedicines] = useState([]);
-    const [selectedMedicine, setSelectedMedicine] = useState("");
-    const [quantity, setQuantity] = useState("");
-    
-    // Lab Tests States
-    const [availableTests, setAvailableTests] = useState([]);
-    const [selectedTestId, setSelectedTestId] = useState("");
-    const [labTests, setLabTests] = useState([]);
-
     const [loading, setLoading] = useState(false);
-    
-    const [errorMsg, setErrorMsg] = useState("");
-    const [successMsg, setSuccessMsg] = useState("");
 
-    // Fetch master inventory and master lab tests
+    // Fetch all patients on mount
     useEffect(() => {
-        const fetchMedicines = async () => {
+        const fetchPatients = async () => {
+            setPatientsLoading(true);
             try {
-                const res = await api.get("/medicine");
-                if (res.data?.success) setAvailableMedicines(res.data.data);
-            } catch (err) { console.error(err); }
+                const res = await getPatients();
+                setPatients(res.data?.data || res.data || []);
+            } catch (error) {
+                console.error("Error fetching patients list:", error);
+            } finally {
+                setPatientsLoading(false);
+            }
         };
-        const fetchTests = async () => {
-            try {
-                const res = await api.get("/lab/tests");
-                if (res.data?.success) setAvailableTests(res.data.data);
-            } catch (err) { console.error(err); }
-        };
-        fetchMedicines();
-        fetchTests();
+        fetchPatients();
     }, []);
 
-    const handleAddMedicine = () => {
-        if (!selectedMedicine || !quantity || Number(quantity) <= 0) return;
-        const existing = medicines.find(m => m.name === selectedMedicine);
-        if (existing) {
-            setMedicines(medicines.map(m => m.name === selectedMedicine ? { ...m, quantity: m.quantity + Number(quantity) } : m));
-        } else {
-            setMedicines([...medicines, { name: selectedMedicine, quantity: Number(quantity) }]);
-        }
-        setSelectedMedicine("");
-        setQuantity("");
-    };
+    // Load selected patient data when upid changes
+    useEffect(() => {
+        const loadPatient = async () => {
+            if (!upid) {
+                setPatientData(null);
+                setSymptoms("");
+                setDiagnosis("");
+                setPrescription("");
+                setNotes("");
+                return;
+            }
+            
+            setPatientLoading(true);
+            try {
+                const res = await getPatient(upid);
+                if (res.data?.data) {
+                    setPatientData(res.data.data);
+                    setSymptoms(res.data.data.symptoms || "");
+                    setDiagnosis("");
+                    setPrescription("");
+                    setNotes("");
+                } else {
+                    setPatientData(null);
+                }
+            } catch (error) {
+                console.error("Error fetching patient details:", error);
+                setPatientData(null);
+            } finally {
+                setPatientLoading(false);
+            }
+        };
 
-    const handleRemoveMedicine = (name) => {
-        setMedicines(medicines.filter(m => m.name !== name));
-    };
-
-    const handleAddTest = () => {
-        if (!selectedTestId) return;
-        const testObj = availableTests.find(t => t._id === selectedTestId);
-        if (!testObj) return;
-        if (!labTests.some(t => t._id === testObj._id)) {
-            setLabTests([...labTests, testObj]);
-        }
-        setSelectedTestId("");
-    };
-
-    const handleRemoveTest = (id) => {
-        setLabTests(labTests.filter(t => t._id !== id));
-    };
+        loadPatient();
+    }, [upid]);
 
     const submitConsultation = async () => {
-        setErrorMsg("");
-        setSuccessMsg("");
-        if (!upid || !diagnosis) {
-            setErrorMsg("UPID and Diagnosis are required!");
+        if (!patientData) {
+            alert("Please select a patient first.");
             return;
         }
-
+        
+        if (!diagnosis.trim()) {
+            alert("Please provide a primary diagnosis.");
+            return;
+        }
+        
         setLoading(true);
         try {
-            const res = await api.post("/consultations", { upid, diagnosis, medicines, labTests });
-            if (res.data?.success) {
-                setSuccessMsg("Consultation finalized successfully.");
-                setUpid(""); setDiagnosis(""); setMedicines([]); setLabTests([]);
-                setTimeout(() => setSuccessMsg(""), 5000);
-            }
-        } catch (err) {
-            setErrorMsg("Error finalizing consultation.");
+            await api.post("/consultations", {
+                upid: patientData.upid,
+                diagnosis,
+                prescription,
+                notes
+            });
+            alert("Consultation saved successfully!");
+            
+            // Clear form
+            setSymptoms("");
+            setDiagnosis("");
+            setPrescription("");
+            setNotes("");
+        } catch (error) {
+            console.error(error);
+            alert("Error saving consultation: " + (error.response?.data?.message || error.message));
         } finally {
             setLoading(false);
         }
     };
 
-    const container = {
-        hidden: { opacity: 0 },
-        show: {
-            opacity: 1,
-            transition: { staggerChildren: 0.1 }
+    const handleAddLabTest = () => {
+        if (!patientData) {
+            alert("Please select a patient first.");
+            return;
         }
+        router.push(`/dashboard/lab?upid=${patientData.upid}`);
     };
 
-    const item = {
-        hidden: { opacity: 0, y: 10 },
-        show: { opacity: 1, y: 0 }
+    const handleAddMedicines = () => {
+        if (!patientData) {
+            alert("Please select a patient first.");
+            return;
+        }
+        router.push(`/dashboard/pharmacy?upid=${patientData.upid}`);
     };
 
     return (
-        <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="space-y-10 pb-20"
-        >
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 px-2">
+        <div className="container mx-auto p-6 max-w-7xl animate-in fade-in duration-500">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                 <div>
-                    <h1 className="text-4xl font-outfit font-bold text-slate-900 dark:text-white tracking-tight">
-                        Consultation <span className="text-primary italic">Desk</span>
-                    </h1>
-                    <p className="text-slate-500 dark:text-slate-400 mt-2 font-medium">Finalize patient diagnosis and issue prescriptions.</p>
+                    <h1 className="text-xl font-semibold tracking-tight text-foreground">Consultation Desk</h1>
+                    <p className="text-sm text-muted-foreground mt-1">Record patient visits, diagnosis, and issue prescriptions.</p>
                 </div>
-                <div className="flex items-center gap-3">
-                    <button className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-2xl text-sm font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-all">
-                        <History className="w-4 h-4" />
-                        Patient History
-                    </button>
+                <div className="flex items-center gap-4">
+                    <select
+                        value={upid}
+                        onChange={(e) => setUpid(e.target.value)}
+                        className="flex h-10 w-full md:w-64 items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        disabled={patientsLoading}
+                    >
+                        <option value="" disabled>
+                            {patientsLoading ? "Loading patients..." : "Select Patient"}
+                        </option>
+                        {patients.map(p => (
+                            <option key={p.upid} value={p.upid}>
+                                {p.name} ({p.upid})
+                            </option>
+                        ))}
+                    </select>
+                    {patientLoading && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
                 </div>
             </div>
 
-            {/* Notifications */}
-            <AnimatePresence>
-                {errorMsg && (
-                    <motion.div 
-                        initial={{ opacity: 0, y: -20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.95 }}
-                        className="bg-rose-500/10 border border-rose-500/20 p-4 rounded-3xl flex items-center gap-3 text-rose-600 dark:text-rose-400 font-bold text-sm shadow-xl shadow-rose-500/5 mx-2"
-                    >
-                        <AlertCircle className="w-5 h-5" />
-                        {errorMsg}
-                    </motion.div>
-                )}
-                {successMsg && (
-                    <motion.div 
-                        initial={{ opacity: 0, y: -20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.95 }}
-                        className="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-3xl flex items-center gap-3 text-emerald-600 dark:text-emerald-400 font-bold text-sm shadow-xl shadow-emerald-500/5 mx-2"
-                    >
-                        <CheckCircle2 className="w-5 h-5" />
-                        {successMsg}
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-10">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 
-                {/* Left: Diagnosis & Basic Info (Col 1-3) */}
-                <motion.div 
-                    variants={container}
-                    initial="hidden"
-                    animate="show"
-                    className="lg:col-span-3 space-y-8"
-                >
-                    <motion.div variants={item} className="glass-card p-8 border border-slate-200/50 dark:border-white/10">
-                        <div className="flex items-center gap-3 mb-8">
-                            <div className="p-2 bg-primary/10 rounded-xl">
-                                <Clipboard className="w-5 h-5 text-primary" />
-                            </div>
-                            <h2 className="text-xl font-bold text-slate-900 dark:text-white">Primary Diagnosis</h2>
-                        </div>
-
-                        <div className="space-y-6">
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Patient UPID</label>
-                                <input 
-                                    placeholder="Enter UPID (e.g. PAT20260001)"
-                                    className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl px-5 py-4 text-sm font-mono focus:ring-2 focus:ring-primary/20 transition-all outline-none uppercase placeholder:normal-case shadow-inner" 
-                                    value={upid} 
-                                    onChange={(e) => setUpid(e.target.value.toUpperCase())} 
-                                />
-                            </div>
-
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Diagnosis Notes</label>
-                                <textarea 
-                                    placeholder="Describe symptoms, observations, and initial assessment..."
-                                    className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl px-5 py-4 text-sm focus:ring-2 focus:ring-primary/20 transition-all outline-none h-64 resize-none shadow-inner" 
-                                    value={diagnosis} 
-                                    onChange={(e) => setDiagnosis(e.target.value)} 
-                                />
-                            </div>
-                        </div>
-                    </motion.div>
-                </motion.div>
-
-                {/* Right: Prescriptions (Col 4-5) */}
-                <div className="lg:col-span-2 space-y-8">
-                    
-                    {/* Medicines */}
-                    <motion.div 
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        className="glass-card p-8 border border-slate-200/50 dark:border-white/10"
-                    >
-                        <div className="flex items-center justify-between mb-8">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-rose-500/10 rounded-xl">
-                                    <Pill className="w-5 h-5 text-rose-500" />
+                {/* LEFT COLUMN: Patient Info & Vitals */}
+                <div className="lg:col-span-4 flex flex-col gap-6">
+                    {/* Patient Card */}
+                    <Card>
+                        <CardHeader className="pb-4">
+                            <div className="flex justify-between items-start gap-4">
+                                <div>
+                                    <CardTitle className="text-xl font-semibold text-foreground">
+                                        {patientData ? patientData.name : "No Patient"}
+                                    </CardTitle>
+                                    <CardDescription className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
+                                        <User className="w-4 h-4" /> 
+                                        {patientData ? patientData.upid : "---"}
+                                    </CardDescription>
                                 </div>
-                                <h2 className="text-xl font-bold text-slate-900 dark:text-white">Medicines</h2>
+                                {patientData && (
+                                    <Badge variant="default">
+                                        Active
+                                    </Badge>
+                                )}
                             </div>
-                        </div>
-
-                        <div className="flex gap-3 mb-6">
-                            <select 
-                                className="flex-1 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-rose-500/20 transition-all outline-none appearance-none cursor-pointer"
-                                value={selectedMedicine} 
-                                onChange={(e) => setSelectedMedicine(e.target.value)}
-                            >
-                                <option value="">Select Drug</option>
-                                {availableMedicines.map((med) => (
-                                    <option key={med._id} value={med.medicineName}>{med.medicineName} ({med.stock} left)</option>
-                                ))}
-                            </select>
-                            <input 
-                                type="number"
-                                placeholder="Qty"
-                                className="w-20 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-rose-500/20 outline-none" 
-                                value={quantity} 
-                                onChange={(e) => setQuantity(e.target.value)} 
-                            />
-                            <button 
-                                onClick={handleAddMedicine}
-                                className="p-3.5 bg-rose-500 text-white rounded-xl hover:bg-rose-600 transition-all shadow-lg shadow-rose-500/20"
-                            >
-                                <Plus className="w-5 h-5" />
-                            </button>
-                        </div>
-
-                        <div className="space-y-3">
-                            <AnimatePresence>
-                                {medicines.map((m, i) => (
-                                    <motion.div 
-                                        key={i}
-                                        initial={{ opacity: 0, scale: 0.95 }}
-                                        animate={{ opacity: 1, scale: 1 }}
-                                        exit={{ opacity: 0, scale: 0.95 }}
-                                        className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700"
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <span className="text-sm font-bold text-slate-900 dark:text-white">{m.name}</span>
-                                            <span className="text-[10px] font-bold text-slate-400 bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded-full">x{m.quantity}</span>
-                                        </div>
-                                        <button onClick={() => handleRemoveMedicine(m.name)} className="text-slate-400 hover:text-rose-500 transition-colors">
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
-                                    </motion.div>
-                                ))}
-                            </AnimatePresence>
-                        </div>
-                    </motion.div>
-
-                    {/* Lab Tests */}
-                    <motion.div 
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.1 }}
-                        className="glass-card p-8 border border-slate-200/50 dark:border-white/10"
-                    >
-                        <div className="flex items-center gap-3 mb-8">
-                            <div className="p-2 bg-indigo-500/10 rounded-xl">
-                                <Beaker className="w-5 h-5 text-indigo-500" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <p className="text-sm text-muted-foreground mb-1">Age / Gender</p>
+                                    <p className="font-medium text-foreground">
+                                        {patientData ? `${patientData.age || '--'}y, ${patientData.gender || '--'}` : "---"}
+                                    </p>
+                                </div>
+                                <div>
+                                    <p className="text-sm text-muted-foreground mb-1">Last Visit</p>
+                                    <p className="font-medium flex items-center gap-1 text-foreground">
+                                        <Clock className="w-4 h-4 text-muted-foreground" />
+                                        {patientData?.createdAt ? new Date(patientData.createdAt).toLocaleDateString() : "---"}
+                                    </p>
+                                </div>
                             </div>
-                            <h2 className="text-xl font-bold text-slate-900 dark:text-white">Lab Investigations</h2>
-                        </div>
+                        </CardContent>
+                    </Card>
 
-                        <div className="flex gap-3 mb-6">
-                            <select 
-                                className="flex-1 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none appearance-none cursor-pointer"
-                                value={selectedTestId} 
-                                onChange={(e) => setSelectedTestId(e.target.value)}
-                            >
-                                <option value="">Select Lab Test</option>
-                                {availableTests.map((t) => (
-                                    <option key={t._id} value={t._id}>{t.name} (₹{t.price})</option>
-                                ))}
-                            </select>
-                            <button 
-                                onClick={handleAddTest}
-                                className="p-3.5 bg-indigo-500 text-white rounded-xl hover:bg-indigo-600 transition-all shadow-lg shadow-indigo-500/20"
-                            >
-                                <Plus className="w-5 h-5" />
-                            </button>
-                        </div>
-
-                        <div className="space-y-3">
-                            <AnimatePresence>
-                                {labTests.map((t, i) => (
-                                    <motion.div 
-                                        key={i}
-                                        initial={{ opacity: 0, scale: 0.95 }}
-                                        animate={{ opacity: 1, scale: 1 }}
-                                        exit={{ opacity: 0, scale: 0.95 }}
-                                        className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700"
-                                    >
-                                        <span className="text-sm font-bold text-slate-900 dark:text-white">{t.name}</span>
-                                        <button onClick={() => handleRemoveTest(t._id)} className="text-slate-400 hover:text-rose-500 transition-colors">
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
-                                    </motion.div>
-                                ))}
-                            </AnimatePresence>
-                        </div>
-                    </motion.div>
-
-                    <button 
-                        onClick={submitConsultation}
-                        disabled={loading || !upid || !diagnosis}
-                        className="w-full bg-primary hover:bg-primary text-white font-bold py-5 rounded-3xl transition-all shadow-xl shadow-primary/30 disabled:opacity-50 flex items-center justify-center gap-3 text-lg group overflow-hidden relative"
-                    >
-                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-                        {loading ? "Finalizing..." : (
-                            <>
-                                Finalize Consultation
-                                <ArrowRightCircle className="w-6 h-6" />
-                            </>
-                        )}
-                    </button>
+                    {/* Vitals Card */}
+                    <Card>
+                        <SectionHeader icon={Activity} title="Recent Vitals" />
+                        <CardContent>
+                            <div className="grid grid-cols-2 gap-4">
+                                <VitalsItem label="Blood Pressure" value="N/A" />
+                                <VitalsItem label="Heart Rate" value="N/A" subValue="bpm" />
+                                <VitalsItem label="Temperature" value="N/A" />
+                                <VitalsItem label="Oxygen Level" value="N/A" />
+                            </div>
+                        </CardContent>
+                    </Card>
                 </div>
 
+                {/* RIGHT COLUMN: Consultation Form & Actions */}
+                <div className="lg:col-span-8 flex flex-col gap-6">
+                    <Card className="flex-1">
+                        <SectionHeader 
+                            icon={Stethoscope} 
+                            title="Clinical Assessment" 
+                            description="Document symptoms, provide diagnosis, and prescribe treatment." 
+                        />
+                        <CardContent className="space-y-6">
+                            <div className="space-y-3">
+                                <Label htmlFor="symptoms" className="text-sm text-muted-foreground">Presenting Symptoms</Label>
+                                <Textarea 
+                                    id="symptoms"
+                                    placeholder="Patient reports headache, fatigue, and mild fever since 3 days..." 
+                                    className="min-h-[100px] resize-none"
+                                    value={symptoms}
+                                    onChange={(e) => setSymptoms(e.target.value)}
+                                />
+                            </div>
+
+                            <div className="space-y-3">
+                                <Label htmlFor="diagnosis" className="text-sm text-muted-foreground">Primary Diagnosis</Label>
+                                <Input 
+                                    id="diagnosis"
+                                    placeholder="e.g. Viral Pharyngitis" 
+                                    className="font-medium"
+                                    value={diagnosis}
+                                    onChange={(e) => setDiagnosis(e.target.value)}
+                                />
+                            </div>
+
+                            <div className="space-y-3">
+                                <Label htmlFor="prescription" className="text-sm text-muted-foreground">Prescription Form/Instructions</Label>
+                                <Textarea 
+                                    id="prescription"
+                                    placeholder="1. Paracetamol 500mg - SOS&#10;2. Amoxicillin 250mg - 1-0-1 x 5 days" 
+                                    className="min-h-[120px] resize-none font-mono text-sm"
+                                    value={prescription}
+                                    onChange={(e) => setPrescription(e.target.value)}
+                                />
+                            </div>
+
+                            <div className="space-y-3">
+                                <Label htmlFor="notes" className="text-sm text-muted-foreground">Physician Notes (Optional)</Label>
+                                <Textarea 
+                                    id="notes"
+                                    placeholder="Additional observations or follow-up instructions..." 
+                                    className="min-h-[80px] resize-none bg-slate-50/50 dark:bg-slate-900/50"
+                                    value={notes}
+                                    onChange={(e) => setNotes(e.target.value)}
+                                />
+                            </div>
+                        </CardContent>
+                        <CardFooter className="bg-slate-50/50 dark:bg-slate-900/20 p-4 border-t flex justify-end">
+                            <Button 
+                                onClick={submitConsultation} 
+                                disabled={loading || !patientData}
+                                className="w-full sm:w-auto"
+                            >
+                                {loading ? (
+                                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</>
+                                ) : (
+                                    <><FilePlus className="mr-2 h-4 w-4" /> Save Consultation</>
+                                )}
+                            </Button>
+                        </CardFooter>
+                    </Card>
+
+                    {/* Clinical Navigation Panel */}
+                    <Card className="border-l-4 border-l-primary">
+                        <SectionHeader 
+                            icon={Sparkles} 
+                            title="Clinical Actions" 
+                            description="Route patient for further clinical procedures." 
+                        />
+                        <CardContent className="p-4 pt-0">
+                            <div className="flex flex-col sm:flex-row gap-4">
+                                <Button 
+                                    className="flex-1" 
+                                    variant="outline" 
+                                    onClick={handleAddLabTest}
+                                    disabled={!patientData}
+                                >
+                                    <Beaker className="w-4 h-4 mr-2 text-primary" /> Add Lab Test
+                                </Button>
+                                <Button 
+                                    className="flex-1" 
+                                    variant="outline" 
+                                    onClick={handleAddMedicines}
+                                    disabled={!patientData}
+                                >
+                                    <FilePlus className="w-4 h-4 mr-2 text-primary" /> Add Medicines
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                </div>
             </div>
-        </motion.div>
+        </div>
     );
 }

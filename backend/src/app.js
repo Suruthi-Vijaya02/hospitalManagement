@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const loggerMiddleware = require('./middlewares/logger.middleware');
 
 const app = express();
 
@@ -8,6 +9,7 @@ const path = require('path');
 // Global Middlewares
 app.use(express.json()); // Parse JSON payloads
 app.use(cors()); // Enable CORS
+app.use(loggerMiddleware); // Log all HTTP requests to file + MongoDB
 
 // Serve uploaded lab reports statically
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));

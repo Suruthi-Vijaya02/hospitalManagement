@@ -1,0 +1,4 @@
+
+# Winston log files
+logs/
+logs/*.json
