@@ -1,5 +1,6 @@
 const Patient = require("../models/Patient.model");
 const { generateUPID } = require("../services/uid.service");
+const { sendWhatsApp } = require("../services/whatsapp.service");
 
 // CREATE
 exports.createPatient = async (req, res) => {
@@ -7,6 +8,17 @@ exports.createPatient = async (req, res) => {
     const upid = await generateUPID();
     const patientData = { ...req.body, upid };
     const patient = await Patient.create(patientData);
+
+    // 🔔 Automated Appointment Reminder
+    if (patient.phone) {
+      const dateStr = patient.appointmentDate 
+        ? new Date(patient.appointmentDate).toLocaleDateString("en-IN", { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) 
+        : "N/A";
+      
+      const message = `*Appointment Confirmation*\n\nHello ${patient.name},\n\nYour appointment at HMS Impeccable has been confirmed.\n\n📅 *Date:* ${dateStr}\n🕒 *Time:* ${patient.appointmentTime || "N/A"}\n🆔 *UPID:* ${upid}\n\nPlease arrive 15 minutes early. See you soon!`;
+      
+      await sendWhatsApp(patient.phone, message);
+    }
 
     res.status(201).json({
       success: true,

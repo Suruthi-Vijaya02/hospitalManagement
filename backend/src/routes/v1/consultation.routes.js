@@ -12,14 +12,14 @@ const { roleMiddleware } = require("../../middlewares/role.middleware");
 router.post(
   "/",
   authMiddleware,
-  roleMiddleware("Doctor"),
+  roleMiddleware("Doctor", "Admin"),
   createConsultation
 );
 
 router.get(
   "/:upid",
   authMiddleware,
-  roleMiddleware("Doctor"),
+  roleMiddleware("Doctor", "Admin"),
   getConsultationsByUpid
 );
 

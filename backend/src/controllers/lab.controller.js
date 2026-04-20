@@ -1,12 +1,14 @@
 const LabTest = require('../models/LabTest.model');
 const Patient = require('../models/Patient.model');
-const Lab = require('../models/Lab.model'); 
+const Lab = require('../models/Lab.model');
+const { sendWhatsApp } = require('../services/whatsapp.service');
+const path = require('path');
 
 // Create lab test (accept UPID, convert to patientId)
 exports.createLabTest = async (req, res) => {
   try {
     const { upid, testName } = req.body;
-    
+
     if (!upid || !testName) {
       return res.status(400).json({ success: false, message: 'UPID and testName are required.' });
     }
@@ -55,6 +57,22 @@ exports.uploadLabReport = async (req, res) => {
     testToUpdate.reportUrl = req.file.path.replace(/\\/g, '/');
     testToUpdate.status = 'Completed';
     await labEntry.save();
+    // 🔔 WhatsApp Notification — Lab Report Ready
+    try {
+      const patient = await Patient.findOne({ upid: labEntry.upid });
+      if (patient && patient.phone) {
+
+        // ✅ Build public URL pointing to the uploaded file
+        const reportFullUrl = `${process.env.BASE_URL}/uploads/lab-reports/${path.basename(testToUpdate.reportUrl)}`;
+
+        const msg = `Hello ${patient.name}, your lab report for *${testToUpdate.name}* is ready. Please find your report attached below.`;
+
+        // ✅ Pass mediaUrl as 3rd argument — file will be attached in WhatsApp
+        await sendWhatsApp(patient.phone, msg, reportFullUrl);
+      }
+    } catch (notifyErr) {
+      console.error('[WhatsApp] Lab notify failed:', notifyErr.message);
+    }
 
     return res.status(200).json({ success: true, data: labEntry });
   } catch (error) {
@@ -116,18 +134,18 @@ exports.createLab = async (req, res) => {
     const { upid, testIds } = req.body;
 
     if (!upid || !testIds || !Array.isArray(testIds)) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'UPID and an array of testIds are required.' 
+      return res.status(400).json({
+        success: false,
+        message: 'UPID and an array of testIds are required.'
       });
     }
 
     const selectedTests = await LabTest.find({ _id: { $in: testIds } });
 
     if (selectedTests.length === 0) {
-      return res.status(404).json({ 
-        success: false, 
-        message: 'No valid tests found from the provided testIds.' 
+      return res.status(404).json({
+        success: false,
+        message: 'No valid tests found from the provided testIds.'
       });
     }
 
@@ -146,6 +164,17 @@ exports.createLab = async (req, res) => {
 
     await labEntry.save();
 
+    // 🔔 WhatsApp Notification (Optional)
+    try {
+      const patient = await Patient.findOne({ upid: labEntry.upid });
+      if (patient && patient.phone) {
+        const msg = `Hello ${patient.name}, your lab order has been created. Status: Pending.`;
+        await sendWhatsApp(patient.phone, msg);
+      }
+    } catch (err) {
+      console.error('[WhatsApp] Lab notify failed:', err.message);
+    }
+
     return res.status(201).json({ success: true, data: labEntry });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
@@ -158,9 +187,9 @@ exports.updateStatus = async (req, res) => {
     const { labId, testId, status, reportUrl } = req.body;
 
     if (!labId || !testId || !status) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'labId, testId, and status are required to update.' 
+      return res.status(400).json({
+        success: false,
+        message: 'labId, testId, and status are required to update.'
       });
     }
 
@@ -179,7 +208,7 @@ exports.updateStatus = async (req, res) => {
     if (['Pending', 'Completed'].includes(status)) {
       testToUpdate.status = status;
     }
-    
+
     if (reportUrl !== undefined) {
       testToUpdate.reportUrl = reportUrl;
     }

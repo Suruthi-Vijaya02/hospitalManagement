@@ -1,4 +1,9 @@
 const path = require('path');
+const dns = require('dns');
+
+// Fix for MongoDB Atlas "querySrv ECONNREFUSED" error on certain local networks
+dns.setServers(['8.8.8.8', '8.8.4.4']);
+
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
 const app = require('./app');

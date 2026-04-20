@@ -8,14 +8,14 @@ const { roleMiddleware } = require("../../middlewares/role.middleware");
 router.get(
     "/",
     authMiddleware,
-    roleMiddleware("Receptionist"),
+    roleMiddleware("Receptionist", "Admin"),
     getAllBills
 );
 
 router.get(
     "/:upid",
     authMiddleware,
-    roleMiddleware("Receptionist"),
+    roleMiddleware("Receptionist", "Admin"),
     generateBill
 );
 
@@ -23,7 +23,7 @@ router.get(
 router.post(
     "/pay",
     authMiddleware,
-    roleMiddleware("Receptionist"),
+    roleMiddleware("Receptionist", "Admin"),
     require("../../controllers/billing.controller").payBill
 );
 

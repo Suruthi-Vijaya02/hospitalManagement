@@ -20,7 +20,7 @@ import {
 export default function PatientsPage() {
     const [patients, setPatients] = useState([]);
     const [form, setForm] = useState({
-        name: "", age: "", gender: "Male", phone: "", address: "", 
+        name: "", age: "", gender: "Male", phone: "+91 ", address: "", 
         appointmentDate: "", appointmentTime: "", bloodGroup: "O+"
     });
     const [loading, setLoading] = useState(false);
@@ -45,12 +45,20 @@ export default function PatientsPage() {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        
+        // Clean phone number (remove spaces)
+        const cleanedPhone = form.phone.replace(/\s/g, "");
+        if (!cleanedPhone.startsWith("+91") || cleanedPhone.length < 13) {
+            alert("Please enter a valid phone number with +91 country code (e.g. +91 74188 42688)");
+            return;
+        }
+
         setLoading(true);
         try {
-            await createPatient(form);
+            await createPatient({ ...form, phone: cleanedPhone });
             setForm({
                 ...form,
-                name: "", age: "", phone: "", address: "", 
+                name: "", age: "", phone: "+91 ", address: "", 
                 appointmentDate: "", appointmentTime: ""
             });
             await fetchPatients();
@@ -164,9 +172,24 @@ export default function PatientsPage() {
                                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Phone Number</label>
                                 <div className="relative">
                                     <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                    <input required placeholder="+1 234 567 890" 
+                                    <input required placeholder="+91 234 567 890" 
                                         className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl pl-11 pr-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 transition-all outline-none dark:text-white" 
                                         value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Appointment Date</label>
+                                    <input required type="date" 
+                                        className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 transition-all outline-none dark:text-white" 
+                                        value={form.appointmentDate} onChange={(e) => setForm({ ...form, appointmentDate: e.target.value })} />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Appointment Time</label>
+                                    <input required type="time" 
+                                        className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary/20 transition-all outline-none dark:text-white" 
+                                        value={form.appointmentTime} onChange={(e) => setForm({ ...form, appointmentTime: e.target.value })} />
                                 </div>
                             </div>
                         </div>

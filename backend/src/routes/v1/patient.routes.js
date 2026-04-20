@@ -11,9 +11,9 @@ const {
 const { authMiddleware } = require("../../middlewares/auth.middleware");
 const { roleMiddleware } = require("../../middlewares/role.middleware");
 
-// Receptionist only
-router.post("/", authMiddleware, roleMiddleware("Receptionist"), createPatient);
-router.put("/:upid", authMiddleware, roleMiddleware("Receptionist"), updatePatient);
+// Receptionist and Admin
+router.post("/", authMiddleware, roleMiddleware("Receptionist", "Admin"), createPatient);
+router.put("/:upid", authMiddleware, roleMiddleware("Receptionist", "Admin"), updatePatient);
 
 // All logged users can view
 router.get("/", authMiddleware, getPatients);
