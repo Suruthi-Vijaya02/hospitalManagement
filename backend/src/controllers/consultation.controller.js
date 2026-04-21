@@ -1,6 +1,8 @@
 const Consultation = require('../models/Consultation.model');
 const PharmacyQueue = require("../models/PharmacyQueue.model");
-
+// ADD THIS at the top of consultation.controller.js
+const { sendWhatsApp } = require('../services/whatsapp.service');
+const Patient = require('../models/Patient.model'); // already likely imported
 // CREATE CONSULTATION
 exports.createConsultation = async (req, res) => {
   try {
@@ -47,7 +49,21 @@ exports.createConsultation = async (req, res) => {
     }
 
     res.status(201).json({ success: true, data: consultation });
-  } catch (error) {
+
+    // 🔔 WhatsApp Notification — Appointment Confirmation
+    try {
+      const patient = await Patient.findOne({ upid });
+      if (patient && patient.phone) {
+        const date = new Date(consultation.createdAt).toLocaleDateString('en-IN');
+        const msg = `Hello ${patient.name}, your appointment with ${consultation.doctor} is scheduled on ${date} at ${consultation.appointmentTime || 'the scheduled time'}.`;
+        await sendWhatsApp(patient.phone, msg);
+      }
+    } catch (notifyErr) {
+      console.error('[WhatsApp] Appointment notify failed:', notifyErr.message);
+    }
+  }
+
+  catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };

@@ -6,6 +6,7 @@ dns.setServers(['8.8.8.8', '8.8.4.4']);
 
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
+const { startReminderScheduler } = require('./services/reminder.service');
 const app = require('./app');
 const connectDB = require('./config/db');
 const logger = require('./utils/logger');
@@ -18,6 +19,9 @@ connectDB().then(() => {
   app.listen(PORT, () => {
     logger.info(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
   });
+
+  // Start reminder scheduler
+  startReminderScheduler();
 }).catch((err) => {
   logger.error('Failed to start server', { error: err.message });
 });
