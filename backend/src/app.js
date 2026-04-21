@@ -28,6 +28,8 @@ const pharmacyRoutes = require('./routes/v1/pharmacy.routes');
 const billingRoutes = require('./routes/v1/billing.routes');
 const medicineRoutes = require('./routes/v1/medicine.routes');
 const dashboardRoutes = require('./routes/v1/dashboard.routes');
+const ipdRoutes = require('./routes/v1/ipd.routes');
+const appointmentRoutes = require('./routes/v1/appointment.routes');
 const errorHandler = require('./middlewares/error.middleware');
 
 
@@ -40,6 +42,8 @@ app.use('/api/v1/pharmacy', pharmacyRoutes);
 app.use('/api/v1/billing', billingRoutes);
 app.use('/api/v1/medicine', medicineRoutes);
 app.use('/api/v1/dashboard', dashboardRoutes);
+app.use('/api/v1/ipd', ipdRoutes);
+app.use('/api/v1/appointments', appointmentRoutes);
 app.use(errorHandler);
 
 module.exports = app;

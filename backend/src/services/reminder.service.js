@@ -1,89 +1,55 @@
 const cron = require('node-cron');
+const Consultation = require('../models/Consultation.model');
 const Patient = require('../models/Patient.model');
 const { sendWhatsApp } = require('./whatsapp.service');
 
-/**
- * Returns start and end of a day that is `daysAhead` from today
- */
-const getDayRange = (daysAhead) => {
-    const date = new Date();
-    date.setDate(date.getDate() + daysAhead);
-
-    const start = new Date(date);
-    start.setHours(0, 0, 0, 0);
-
-    const end = new Date(date);
-    end.setHours(23, 59, 59, 999);
-
-    return { start, end };
-};
-
-/**
- * Send reminders for appointments happening `daysAhead` days from today
- */
-const sendRemindersForDay = async (daysAhead) => {
-    const label = daysAhead === 1 ? 'tomorrow' : `in ${daysAhead} days`;
-    const { start, end } = getDayRange(daysAhead);
-
-    try {
-        // Find all patients with appointment in that day range
-        const patients = await Patient.find({
-            appointmentDate: { $gte: start, $lte: end },
-            phone: { $exists: true, $ne: null },
-        });
-
-        console.log(`[Reminder] Found ${patients.length} appointment(s) ${label}`);
-
-        for (const patient of patients) {
-            try {
-                const dateStr = new Date(patient.appointmentDate).toLocaleDateString('en-IN', {
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                });
-
-                const msg =
-                    `*Appointment Reminder* ⏰\n\n` +
-                    `Hello ${patient.name},\n\n` +
-                    `This is a reminder that your appointment at *HMS Impeccable* is scheduled *${label}*.\n\n` +
-                    `📅 *Date:* ${dateStr}\n` +
-                    `🕒 *Time:* ${patient.appointmentTime || 'N/A'}\n` +
-                    `🆔 *UPID:* ${patient.upid}\n\n` +
-                    `Please arrive 15 minutes early. See you soon! 🏥`;
-
-                const result = await sendWhatsApp(patient.phone, msg);
-
-                if (result.success) {
-                    console.log(`[Reminder] ✅ Sent ${label} reminder to ${patient.name} (${patient.phone})`);
-                } else {
-                    console.error(`[Reminder] ❌ Failed for ${patient.name}: ${result.error}`);
-                }
-
-            } catch (err) {
-                console.error(`[Reminder] ❌ Error for patient ${patient.upid}:`, err.message);
-            }
-        }
-
-    } catch (err) {
-        console.error(`[Reminder] ❌ DB query failed for ${label}:`, err.message);
-    }
-};
-
-/**
- * Start the cron scheduler
- * Runs every day at 9:00 AM
- */
+// Function to initialize the scheduler
 const startReminderScheduler = () => {
-    // Cron: '0 9 * * *' = every day at 9:00 AM
+    // Schedule a task to run every day at 9:00 AM
+    // Format: minute hour day-of-month month day-of-week
     cron.schedule('0 9 * * *', async () => {
-        console.log('[Reminder] 🕘 Running daily appointment reminder job...');
-        await sendRemindersForDay(1); // 1 day before
-    }, {
-        timezone: 'Asia/Kolkata' // ← IST timezone
+        console.log('[Reminder Service] Checking for upcoming follow-ups...');
+        
+        try {
+            // Calculate the date 2 days from now (start and end of day)
+            const targetDateStart = new Date();
+            targetDateStart.setDate(targetDateStart.getDate() + 2);
+            targetDateStart.setHours(0, 0, 0, 0);
+
+            const targetDateEnd = new Date();
+            targetDateEnd.setDate(targetDateEnd.getDate() + 2);
+            targetDateEnd.setHours(23, 59, 59, 999);
+
+            // Find consultations with nextFollowUpDate in that range
+            const consultations = await Consultation.find({
+                nextFollowUpDate: {
+                    $gte: targetDateStart,
+                    $lte: targetDateEnd
+                }
+            });
+
+            console.log(`[Reminder Service] Found ${consultations.length} follow-ups scheduled for ${targetDateStart.toDateString()}`);
+
+            for (const consultation of consultations) {
+                const patient = await Patient.findOne({ upid: consultation.upid });
+                
+                if (patient && patient.phone) {
+                    const message = `*Upcoming Follow-up Reminder*\n\nHello ${patient.name},\n\nThis is a friendly reminder from HMS Impeccable. Your follow-up visit is scheduled for *${targetDateStart.toLocaleDateString("en-IN", { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}*.\n\nPlease arrive on time. We look forward to seeing you!`;
+                    
+                    try {
+                        await sendWhatsApp(patient.phone, message);
+                        console.log(`[Reminder Service] Sent reminder to ${patient.name} (${patient.phone})`);
+                    } catch (err) {
+                        console.error(`[Reminder Service] Failed to send to ${patient.phone}:`, err.message);
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('[Reminder Service] Error during task execution:', error.message);
+        }
     });
 
-    console.log('[Reminder] ✅ Appointment reminder scheduler started (runs daily at 9:00 AM IST)');
+    console.log('[Reminder Service] Scheduled: Daily follow-up check at 9:00 AM');
 };
 
 module.exports = { startReminderScheduler };

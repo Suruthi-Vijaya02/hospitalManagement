@@ -15,8 +15,19 @@ import {
     Settings,
     MoreVertical,
     Download,
-    Eye
+    Eye,
+    TestTube2,
+    Microscope,
+    FlaskConical,
+    Loader2,
+    Activity,
+    FileText
 } from "lucide-react";
+import { Card, CardHeader, CardTitle, CardContent, CardDescription, CardFooter } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function LabPage() {
     const [upid, setUpid] = useState("");
@@ -24,30 +35,45 @@ export default function LabPage() {
     const [selectedTestIds, setSelectedTestIds] = useState([]);
     const [patientLabs, setPatientLabs] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [fetching, setFetching] = useState(true);
 
     const [newTestName, setNewTestName] = useState("");
     const [newTestPrice, setNewTestPrice] = useState("");
     const [uploadingTestId, setUploadingTestId] = useState(null);
+    const [patients, setPatients] = useState([]);
+    const [showPatientList, setShowPatientList] = useState(false);
+    const [searchTerm, setSearchTerm] = useState("");
 
-    const fetchPatientLabs = async () => {
-        if (!upid) {
+    const fetchPatientLabs = async (overrideUpid = null) => {
+        const targetUpid = overrideUpid || upid;
+        if (!targetUpid) {
             fetchLabQueue();
             return;
         }
+        setFetching(true);
         try {
-            const res = await api.get(`/lab/${upid}`);
+            const res = await api.get(`/lab/${targetUpid}`);
             if (res.data?.success) setPatientLabs(res.data.data);
         } catch (err) { console.error(err); }
+        finally { setFetching(false); }
     };
 
     const fetchLabQueue = async () => {
+        setFetching(true);
         try {
             const res = await api.get("/lab/queue");
             if (res.data?.success) setPatientLabs(res.data.data);
         } catch (err) { console.error(err); }
+        finally { setFetching(false); }
     };
 
-    // Fetch master lab tests and global queue on load
+    const fetchPatients = async () => {
+        try {
+            const res = await api.get("/patients");
+            if (res.data?.success) setPatients(res.data.data);
+        } catch (err) { console.error(err); }
+    };
+
     useEffect(() => {
         const fetchTests = async () => {
             try {
@@ -57,7 +83,20 @@ export default function LabPage() {
         };
         fetchTests();
         fetchLabQueue();
+        fetchPatients();
     }, []);
+
+    const filteredPatients = patients.filter(p => 
+        p.upid.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        p.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    const handlePatientSelect = (patient) => {
+        setUpid(patient.upid);
+        setSearchTerm(`${patient.name} (${patient.upid})`);
+        setShowPatientList(false);
+        fetchPatientLabs(patient.upid);
+    };
 
     const toggleTestSelection = (testId) => {
         setSelectedTestIds((prev) =>
@@ -107,260 +146,213 @@ export default function LabPage() {
         setUploadingTestId(null);
     };
 
-    const container = {
-        hidden: { opacity: 0 },
-        show: {
-            opacity: 1,
-            transition: { staggerChildren: 0.05 }
-        }
-    };
-
-    const item = {
-        hidden: { opacity: 0, y: 10 },
-        show: { opacity: 1, y: 0 }
-    };
-
     return (
-        <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="space-y-10 pb-20"
-        >
+        <div className="space-y-10 pb-20 max-w-[1600px] mx-auto animate-fade-in">
             {/* Header section */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 px-2">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                 <div>
-                    <h1 className="text-4xl font-outfit font-bold text-slate-900 dark:text-white tracking-tight">
-                        Laboratory <span className="text-primary italic">Terminal</span>
+                    <div className="flex items-center gap-2 mb-3">
+                        <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30 font-black tracking-widest text-[10px]">
+                            DIAGNOSTIC UNIT
+                        </Badge>
+                        <div className="h-1 w-1 rounded-full bg-slate-300"></div>
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Lab Terminal: Online</span>
+                    </div>
+                    <h1 className="text-4xl font-bold text-slate-900 dark:text-white tracking-tight">
+                        Laboratory <span className="text-primary font-black">Investigations</span>
                     </h1>
-                    <p className="text-slate-500 dark:text-slate-400 mt-2 font-medium">Manage investigations and diagnostic reports.</p>
+                    <p className="text-sm text-slate-500 font-medium mt-2">Process diagnostic requests, manage report uploads, and track clinical investigations.</p>
+                </div>
+
+                <div className="flex items-center gap-4">
+                    <Card className="px-6 py-3 border-slate-300 bg-white/50 dark:bg-slate-900/50 flex items-center gap-6">
+                        <div className="flex items-center gap-2">
+                            <Clock className="w-4 h-4 text-amber-500" />
+                            <div className="flex flex-col">
+                                <span className="text-[10px] font-black text-slate-400 uppercase">Pending</span>
+                                <span className="text-sm font-bold text-slate-900 dark:text-white">{patientLabs.filter(l => l.tests.some(t => t.status === "Pending")).length}</span>
+                            </div>
+                        </div>
+                        <div className="h-8 w-[1px] bg-slate-200 dark:bg-slate-800" />
+                        <div className="flex items-center gap-2">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                            <div className="flex flex-col">
+                                <span className="text-[10px] font-black text-slate-400 uppercase">Released</span>
+                                <span className="text-sm font-bold text-slate-900 dark:text-white">{patientLabs.filter(l => l.tests.every(t => t.status === "Completed")).length}</span>
+                            </div>
+                        </div>
+                    </Card>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
                 
-                {/* Left: Configuration & Requests (Col 1-5) */}
+                {/* Left: Investigation Registry */}
                 <div className="lg:col-span-5 space-y-8">
                     
-                    {/* Master Test Panel */}
-                    <motion.div 
-                        variants={item}
-                        initial="hidden"
-                        animate="show"
-                        className="glass-card p-6 border border-slate-200 dark:border-white/10"
-                    >
-                        <div className="flex items-center gap-3 mb-6">
-                            <div className="p-2 bg-primary/10 rounded-xl">
-                                <Settings className="w-4 h-4 text-primary" />
-                            </div>
-                            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Master Catalogue</h3>
-                        </div>
-                        <div className="flex gap-3">
-                            <input 
-                                placeholder="Investigation name" 
-                                className="flex-1 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-xs outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium dark:text-white"
-                                value={newTestName} 
-                                onChange={(e) => setNewTestName(e.target.value)} 
+                    {/* Patient Search */}
+                    <Card className="p-2 border-slate-300 shadow-xl relative z-[50] overflow-visible">
+                        <div className="relative group">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-primary transition-colors" />
+                            <Input
+                                placeholder="Search Patient UPID for Investigation..."
+                                className="h-14 pl-12 pr-6 border-none shadow-none focus-visible:ring-0 text-base font-bold dark:text-white placeholder:font-medium placeholder:text-slate-400"
+                                value={searchTerm}
+                                onChange={(e) => {
+                                    setSearchTerm(e.target.value);
+                                    setShowPatientList(true);
+                                    if (!e.target.value) setUpid("");
+                                }}
+                                onFocus={() => setShowPatientList(true)}
                             />
-                            <input 
-                                placeholder="Price" 
-                                type="number"
-                                className="w-20 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 text-xs outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium dark:text-white"
-                                value={newTestPrice} 
-                                onChange={(e) => setNewTestPrice(e.target.value)} 
-                            />
-                            <button 
-                                onClick={handleAddMasterTest}
-                                className="p-3 bg-primary text-white rounded-xl hover:bg-primary transition-all shadow-lg shadow-primary/20"
-                            >
-                                <Plus className="w-4 h-4" />
-                            </button>
-                        </div>
-                    </motion.div>
-
-                    {/* Lab Request Form */}
-                    <motion.div 
-                        variants={item}
-                        initial="hidden"
-                        animate="show"
-                        transition={{ delay: 0.1 }}
-                        className="glass-card p-8 border border-slate-200 dark:border-white/10"
-                    >
-                        <div className="space-y-8">
-                            <div>
-                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 mb-2 block">Patient Registration</label>
-                                <div className="relative group">
-                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-primary transition-colors" />
-                                    <input 
-                                        placeholder="ENTER UPID (PAT2026...)"
-                                        className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl py-4 pl-11 pr-4 text-sm font-bold tracking-widest outline-none focus:ring-2 focus:ring-primary/20 transition-all uppercase shadow-inner dark:text-white" 
-                                        value={upid} 
-                                        onChange={(e) => setUpid(e.target.value.toUpperCase())}
-                                        onKeyDown={(e) => e.key === 'Enter' && fetchPatientLabs()}
-                                    />
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1 mb-4 block">Select Investigations</label>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                                    {availableTests.map((test) => {
-                                        const isSelected = selectedTestIds.includes(test._id);
-                                        return (
-                                            <motion.div
-                                                key={test._id}
-                                                whileHover={{ scale: 1.02 }}
-                                                whileTap={{ scale: 0.98 }}
-                                                onClick={() => toggleTestSelection(test._id)}
-                                                className={`cursor-pointer p-4 rounded-2xl border transition-all flex flex-col gap-1 ${
-                                                    isSelected
-                                                        ? "border-primary bg-primary/10 shadow-lg shadow-primary/5"
-                                                        : "border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 group-hover:border-primary/20 hover:bg-slate-50 dark:hover:bg-slate-800"
-                                                }`}
-                                            >
-                                                <span className={`text-xs font-bold leading-tight ${isSelected ? "text-primary" : "text-slate-700 dark:text-slate-300"}`}>
-                                                    {test.name}
-                                                </span>
-                                                <span className={`text-[10px] font-bold ${isSelected ? "text-primary/60" : "text-slate-400"}`}>
-                                                    ₹{test.price}
-                                                </span>
-                                            </motion.div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-
-                            <button 
-                                onClick={submitLabRequest}
-                                disabled={loading || selectedTestIds.length === 0 || !upid}
-                                className="w-full bg-slate-900 dark:bg-primary text-white font-bold py-5 rounded-2xl tracking-wide shadow-xl shadow-slate-900/10 hover:translate-y-[-2px] active:translate-y-[0] transition-all disabled:opacity-50 flex items-center justify-center gap-3 overflow-hidden relative group"
-                            >
-                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-                                {loading ? "Processing..." : (
-                                    <>
-                                        Register Request ({selectedTestIds.length})
-                                        <ChevronRight className="w-5 h-5" />
-                                    </>
+                            <AnimatePresence>
+                                {showPatientList && searchTerm && !upid && (
+                                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="absolute top-[calc(100%+12px)] left-0 right-0 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl z-[60] max-h-[350px] overflow-y-auto p-2">
+                                        {filteredPatients.length > 0 ? (
+                                            filteredPatients.map(p => (
+                                                <Button key={p._id} variant="ghost" onClick={() => handlePatientSelect(p)} className="w-full h-auto p-4 justify-start gap-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-xl group text-left">
+                                                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-black text-xs">{p.name.charAt(0)}</div>
+                                                    <div>
+                                                        <p className="font-bold text-slate-900 dark:text-white text-sm group-hover:text-primary transition-colors">{p.name}</p>
+                                                        <p className="text-[10px] font-mono text-slate-400 uppercase tracking-widest">{p.upid}</p>
+                                                    </div>
+                                                </Button>
+                                            ))
+                                        ) : <div className="p-10 text-center text-slate-400 font-bold text-xs uppercase tracking-widest">Patient not found</div>}
+                                    </motion.div>
                                 )}
-                            </button>
+                            </AnimatePresence>
                         </div>
-                    </motion.div>
+                    </Card>
+
+                    {/* Investigation Catalogue */}
+                    <Card className="border-slate-300 shadow-sm">
+                        <CardHeader className="border-b border-slate-100 dark:border-slate-800">
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="text-lg font-bold flex items-center gap-2">
+                                    <FlaskConical className="w-5 h-5 text-primary" /> Test Catalogue
+                                </CardTitle>
+                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => {/* Add Modal */}}>
+                                    <Settings className="w-4 h-4" />
+                                </Button>
+                            </div>
+                            <CardDescription>Select investigations to be registered for {upid || 'selected patient'}.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="p-6">
+                            <div className="grid grid-cols-2 gap-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                                {availableTests.map((test) => {
+                                    const isSelected = selectedTestIds.includes(test._id);
+                                    return (
+                                        <div 
+                                            key={test._id} 
+                                            onClick={() => toggleTestSelection(test._id)}
+                                            className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                                                isSelected 
+                                                    ? "border-primary bg-primary/5 shadow-inner" 
+                                                    : "border-slate-50 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50"
+                                            }`}
+                                        >
+                                            <p className={`text-xs font-black uppercase tracking-tight ${isSelected ? "text-primary" : "text-slate-700 dark:text-slate-300"}`}>{test.name}</p>
+                                            <p className={`text-[10px] font-bold mt-1 ${isSelected ? "text-primary/60" : "text-slate-400"}`}>₹{test.price}</p>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </CardContent>
+                        <CardFooter className="bg-slate-50 dark:bg-slate-900/50 border-t border-slate-100 dark:border-slate-800 pt-6">
+                            <Button 
+                                disabled={loading || selectedTestIds.length === 0 || !upid} 
+                                onClick={submitLabRequest}
+                                className="w-full h-14 font-black uppercase tracking-[0.2em] shadow-xl shadow-primary/20"
+                            >
+                                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : `Register Request (${selectedTestIds.length})`}
+                            </Button>
+                        </CardFooter>
+                    </Card>
+
+                    {/* Master Test Addition */}
+                    <Card className="p-6 border-slate-300 bg-slate-900 text-white">
+                        <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-4">Catalogue Management</h3>
+                        <div className="flex gap-3">
+                            <Input placeholder="Test Name" className="bg-white/5 border-white/10 h-12 text-white text-xs font-bold" value={newTestName} onChange={(e) => setNewTestName(e.target.value)} />
+                            <Input placeholder="₹" type="number" className="w-24 bg-white/5 border-white/10 h-12 text-white text-xs font-bold" value={newTestPrice} onChange={(e) => setNewTestPrice(e.target.value)} />
+                            <Button onClick={handleAddMasterTest} className="h-12 w-12 p-0 bg-primary hover:bg-primary/90"><Plus className="w-5 h-5" /></Button>
+                        </div>
+                    </Card>
                 </div>
 
-                {/* Right: History & Reports (Col 6-12) */}
+                {/* Right: Diagnostic Pipeline */}
                 <div className="lg:col-span-7 space-y-6">
                     <div className="flex items-center justify-between px-2">
-                        <div className="flex items-center gap-2">
-                            <History className="w-5 h-5 text-primary" />
-                            <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-                                {upid ? `History for ${upid}` : "Active Investigation Queue"}
-                            </h2>
-                        </div>
-                        {upid && (
-                            <button 
-                                onClick={() => { setUpid(""); fetchLabQueue(); }}
-                                className="text-[10px] font-bold text-primary uppercase tracking-widest hover:underline"
-                            >
-                                View Active Queue
-                            </button>
-                        )}
+                        <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.25em] flex items-center gap-2">
+                            <History className="w-3 h-3" /> Diagnostic Pipeline
+                        </h3>
+                        {upid && <Button variant="ghost" size="sm" onClick={() => { setUpid(""); fetchLabQueue(); }} className="text-[10px] font-black text-primary uppercase">Exit Patient View</Button>}
                     </div>
 
-                    <div className="space-y-6 max-h-[800px] overflow-y-auto pr-2 custom-scrollbar pb-10">
-                        {patientLabs.length === 0 ? (
-                            <motion.div 
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                className="flex flex-col items-center justify-center py-20 bg-slate-50/50 dark:bg-slate-900/50 rounded-[2.5rem] border border-dashed border-slate-200 dark:border-slate-800"
-                            >
-                                <div className="w-20 h-20 bg-white dark:bg-slate-900 rounded-full flex items-center justify-center mb-4 shadow-sm">
-                                     <Beaker className="w-10 h-10 text-slate-200" />
-                                </div>
-                                <h4 className="text-slate-900 dark:text-white font-bold">
-                                    {upid ? "No records found" : "Queue is currently empty"}
-                                </h4>
-                                <p className="text-slate-400 text-sm mt-1 max-w-[200px] text-center">
-                                    {upid ? "No diagnostic history available for this patient." : "Diagnostic requests will appear here in real-time."}
-                                </p>
-                            </motion.div>
-                        ) : null}
-
-                        <AnimatePresence mode="popLayout">
-                            {patientLabs.map((lab) => (
-                                <motion.div 
-                                    key={lab._id}
-                                    layout
-                                    initial={{ opacity: 0, scale: 0.95 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    className="glass-card p-6 border border-slate-200 dark:border-white/10 shadow-sm"
-                                >
-                                    <div className="flex items-center justify-between mb-6">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-bold text-slate-400 text-xs">
-                                                ID
-                                            </div>
-                                            <div>
-                                                <h4 className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">REF: {lab._id.slice(-8).toUpperCase()} • {lab.upid}</h4>
-                                                <p className="text-[10px] text-slate-400 font-bold mt-0.5">{new Date(lab.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })} at {new Date(lab.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                    <div className="space-y-6 max-h-[1000px] overflow-y-auto pr-2 custom-scrollbar pb-10">
+                        {fetching ? (
+                            [...Array(3)].map((_, i) => <Card key={i} className="p-8 border-slate-200/60"><Skeleton className="h-32 w-full" /></Card>)
+                        ) : patientLabs.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center py-20 text-center border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-[2.5rem]">
+                                <Beaker className="w-12 h-12 text-slate-200 dark:text-slate-800 mb-6" />
+                                <h3 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">Pipeline Clear</h3>
+                                <p className="text-sm text-slate-400 font-medium mt-2 max-w-xs">No active investigations are currently registered in the diagnostic queue.</p>
+                            </div>
+                        ) : (
+                            patientLabs.map((lab) => (
+                                <Card key={lab._id} className="border-slate-300 shadow-sm overflow-hidden">
+                                    <CardHeader className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-800 py-4 px-6 flex flex-row items-center justify-between">
+                                        <div className="flex items-center gap-4">
+                                            <div className="flex flex-col">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ID: {lab._id.slice(-6).toUpperCase()}</span>
+                                                    <Badge className="bg-primary/5 text-primary border-primary/20 font-mono text-[9px]">{lab.upid}</Badge>
+                                                </div>
+                                                <p className="text-[10px] font-bold text-slate-500 mt-1 uppercase">{new Date(lab.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })} at {new Date(lab.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                                             </div>
                                         </div>
-                                        <div className="p-2 text-slate-300 hover:text-primary transition-colors cursor-pointer">
-                                            <MoreVertical className="w-4 h-4" />
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-3">
+                                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-slate-400"><MoreVertical className="w-4 h-4" /></Button>
+                                    </CardHeader>
+                                    <CardContent className="p-6 space-y-4">
                                         {lab.tests.map((test) => (
-                                            <div key={test._id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700/50 rounded-2xl shadow-sm group hover:border-primary/20 transition-all">
-                                                <div className="flex items-center gap-4">
-                                                    <div className={`w-2 h-10 rounded-full ${test.status === "Completed" ? "bg-emerald-500" : "bg-amber-500"} shadow-sm`} />
+                                            <div key={test._id} className="flex flex-col md:flex-row items-center justify-between gap-4 p-5 bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl group hover:border-primary/30 transition-all">
+                                                <div className="flex items-center gap-4 flex-1">
+                                                    <div className={`p-3 rounded-xl ${test.status === "Completed" ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-500" : "bg-amber-500/10 text-amber-600 dark:text-amber-500"}`}>
+                                                        {test.status === "Completed" ? <CheckCircle2 className="w-5 h-5" /> : <Clock className="w-5 h-5" />}
+                                                    </div>
                                                     <div>
-                                                        <h5 className="text-xs font-bold text-slate-900 dark:text-white">{test.name}</h5>
-                                                        <span className="text-[10px] text-slate-400 font-bold">Investigation • ₹{test.price}</span>
+                                                        <h5 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">{test.name}</h5>
+                                                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Status: <span className={test.status === "Completed" ? "text-emerald-600 dark:text-emerald-500" : "text-amber-600 dark:text-amber-500"}>{test.status}</span></p>
                                                     </div>
                                                 </div>
                                                 
                                                 <div className="flex items-center gap-3">
                                                     {test.reportUrl && (
-                                                        <a 
-                                                            href={`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'}/${test.reportUrl}`} 
-                                                            target="_blank" rel="noreferrer" 
-                                                            className="flex items-center gap-2 px-3 py-1.5 bg-primary/10 text-primary text-[10px] font-bold rounded-lg hover:bg-primary hover:text-white transition-all shadow-sm"
-                                                        >
-                                                            <Eye className="w-3 h-3" />
-                                                            View Report
-                                                        </a>
+                                                        <Button variant="outline" size="sm" className="h-10 gap-2 font-bold text-[10px] uppercase border-primary/20 text-primary hover:bg-primary hover:text-white" asChild>
+                                                            <a href={`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'}/${test.reportUrl}`} target="_blank" rel="noreferrer">
+                                                                <FileText className="w-3 h-3" /> Report Published
+                                                            </a>
+                                                        </Button>
                                                     )}
                                                     
-                                                    <div className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider flex items-center gap-2 border ${
-                                                        test.status === "Completed" 
-                                                            ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" 
-                                                            : "bg-amber-500/10 text-amber-500 border-amber-500/20"
-                                                    }`}>
-                                                        {test.status === "Completed" ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
-                                                        {test.status}
-                                                    </div>
-
                                                     {test.status === "Pending" && (
-                                                        <label className={`cursor-pointer group flex items-center gap-2 px-3 py-1.5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-lg text-[10px] font-bold hover:scale-[1.02] transition-all shadow-md ${uploadingTestId === test._id ? 'opacity-50 pointer-events-none' : ''}`}>
-                                                            {uploadingTestId === test._id ? 'Uploading...' : (
-                                                                <>
-                                                                    <FileUp className="w-3 h-3" />
-                                                                    Upload
-                                                                </>
-                                                            )}
+                                                        <label className={`h-10 px-4 flex items-center gap-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl text-[10px] font-black uppercase tracking-widest cursor-pointer hover:scale-[1.02] transition-all shadow-lg ${uploadingTestId === test._id ? 'opacity-50 pointer-events-none' : ''}`}>
+                                                            {uploadingTestId === test._id ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileUp className="w-3 h-3" />}
+                                                            {uploadingTestId === test._id ? 'Uploading' : 'Submit Result'}
                                                             <input type="file" className="hidden" onChange={(e) => handleFileUpload(e, lab._id, test._id)} />
                                                         </label>
                                                     )}
                                                 </div>
                                             </div>
                                         ))}
-                                    </div>
-                                </motion.div>
-                            ))}
-                        </AnimatePresence>
+                                    </CardContent>
+                                </Card>
+                            ))
+                        )}
                     </div>
                 </div>
             </div>
-        </motion.div>
+        </div>
     );
 }

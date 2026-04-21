@@ -23,6 +23,19 @@ const billSchema = new mongoose.Schema(
             type: Number,
             default: 0,
         },
+        ipdCharges: {
+            type: Number,
+            default: 0,
+        },
+        otherCharges: [{
+            description: String,
+            amount: Number,
+            date: { type: Date, default: Date.now }
+        }],
+        miscTotal: {
+            type: Number,
+            default: 0,
+        },
         totalAmount: {
             type: Number,
             required: true,

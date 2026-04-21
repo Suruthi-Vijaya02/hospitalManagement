@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
 import { 
   Stethoscope, AlertCircle, Loader2, Sparkles, User, Activity, Clock, FilePlus, Search, Beaker
 } from "lucide-react";
@@ -47,6 +48,8 @@ export default function ConsultationsPage() {
     const [upid, setUpid] = useState("");
     const [patientData, setPatientData] = useState(null);
     const [patientLoading, setPatientLoading] = useState(false);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [showPatientList, setShowPatientList] = useState(false);
 
     // Fetch all patients state
     const [patients, setPatients] = useState([]);
@@ -55,8 +58,10 @@ export default function ConsultationsPage() {
     // Consultation Form State
     const [symptoms, setSymptoms] = useState("");
     const [diagnosis, setDiagnosis] = useState("");
+    const [icdCode, setIcdCode] = useState("");
     const [prescription, setPrescription] = useState("");
     const [notes, setNotes] = useState("");
+    const [nextFollowUpDate, setNextFollowUpDate] = useState("");
     
     const [loading, setLoading] = useState(false);
 
@@ -75,6 +80,11 @@ export default function ConsultationsPage() {
         };
         fetchPatients();
     }, []);
+
+    const filteredPatients = patients.filter(p => 
+        p.upid.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        p.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
     // Load selected patient data when upid changes
     useEffect(() => {
@@ -95,8 +105,10 @@ export default function ConsultationsPage() {
                     setPatientData(res.data.data);
                     setSymptoms(res.data.data.symptoms || "");
                     setDiagnosis("");
+                    setIcdCode("");
                     setPrescription("");
                     setNotes("");
+                    setNextFollowUpDate("");
                 } else {
                     setPatientData(null);
                 }
@@ -127,16 +139,20 @@ export default function ConsultationsPage() {
             await api.post("/consultations", {
                 upid: patientData.upid,
                 diagnosis,
+                icdCode,
                 prescription,
-                notes
+                notes,
+                nextFollowUpDate
             });
             alert("Consultation saved successfully!");
             
             // Clear form
             setSymptoms("");
             setDiagnosis("");
+            setIcdCode("");
             setPrescription("");
             setNotes("");
+            setNextFollowUpDate("");
         } catch (error) {
             console.error(error);
             alert("Error saving consultation: " + (error.response?.data?.message || error.message));
@@ -168,22 +184,51 @@ export default function ConsultationsPage() {
                     <h1 className="text-xl font-semibold tracking-tight text-foreground">Consultation Desk</h1>
                     <p className="text-sm text-muted-foreground mt-1">Record patient visits, diagnosis, and issue prescriptions.</p>
                 </div>
-                <div className="flex items-center gap-4">
-                    <select
-                        value={upid}
-                        onChange={(e) => setUpid(e.target.value)}
-                        className="flex h-10 w-full md:w-64 items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                        disabled={patientsLoading}
-                    >
-                        <option value="" disabled>
-                            {patientsLoading ? "Loading patients..." : "Select Patient"}
-                        </option>
-                        {patients.map(p => (
-                            <option key={p.upid} value={p.upid}>
-                                {p.name} ({p.upid})
-                            </option>
-                        ))}
-                    </select>
+                <div className="flex items-center gap-4 relative z-[100]">
+                    <div className="relative group w-full md:w-80">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                        <input 
+                            placeholder="Search Name or UPID..."
+                            className="flex h-10 w-full rounded-md border border-input bg-background pl-10 pr-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring transition-all"
+                            value={searchTerm}
+                            onChange={(e) => {
+                                setSearchTerm(e.target.value);
+                                setShowPatientList(true);
+                                if (!e.target.value) setUpid("");
+                            }}
+                            onFocus={() => setShowPatientList(true)}
+                        />
+                        
+                        <AnimatePresence>
+                            {showPatientList && searchTerm && !upid && (
+                                <motion.div 
+                                    initial={{ opacity: 0, y: -10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -10 }}
+                                    className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded-xl shadow-2xl z-[101] max-h-60 overflow-y-auto p-2 space-y-1"
+                                >
+                                    {filteredPatients.length > 0 ? (
+                                        filteredPatients.map(p => (
+                                            <div 
+                                                key={p.upid}
+                                                onClick={() => {
+                                                    setUpid(p.upid);
+                                                    setSearchTerm(`${p.name} (${p.upid})`);
+                                                    setShowPatientList(false);
+                                                }}
+                                                className="p-3 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer rounded-lg border border-transparent hover:border-primary/20 transition-all flex flex-col"
+                                            >
+                                                <span className="text-sm font-bold">{p.name}</span>
+                                                <span className="text-[10px] font-mono text-muted-foreground uppercase">{p.upid}</span>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="p-4 text-center text-[10px] font-bold text-muted-foreground uppercase">No results</div>
+                                    )}
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </div>
                     {patientLoading && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
                 </div>
             </div>
@@ -265,15 +310,27 @@ export default function ConsultationsPage() {
                                 />
                             </div>
 
-                            <div className="space-y-3">
-                                <Label htmlFor="diagnosis" className="text-sm text-muted-foreground">Primary Diagnosis</Label>
-                                <Input 
-                                    id="diagnosis"
-                                    placeholder="e.g. Viral Pharyngitis" 
-                                    className="font-medium"
-                                    value={diagnosis}
-                                    onChange={(e) => setDiagnosis(e.target.value)}
-                                />
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-3">
+                                    <Label htmlFor="diagnosis" className="text-sm text-muted-foreground">Primary Diagnosis</Label>
+                                    <Input 
+                                        id="diagnosis"
+                                        placeholder="e.g. Viral Pharyngitis" 
+                                        className="font-medium"
+                                        value={diagnosis}
+                                        onChange={(e) => setDiagnosis(e.target.value)}
+                                    />
+                                </div>
+                                <div className="space-y-3">
+                                    <Label htmlFor="icdCode" className="text-sm text-muted-foreground">ICD-10 Code</Label>
+                                    <Input 
+                                        id="icdCode"
+                                        placeholder="e.g. J02.9" 
+                                        className="font-medium font-mono uppercase"
+                                        value={icdCode}
+                                        onChange={(e) => setIcdCode(e.target.value)}
+                                    />
+                                </div>
                             </div>
 
                             <div className="space-y-3">
@@ -284,6 +341,17 @@ export default function ConsultationsPage() {
                                     className="min-h-[120px] resize-none font-mono text-sm"
                                     value={prescription}
                                     onChange={(e) => setPrescription(e.target.value)}
+                                />
+                            </div>
+
+                            <div className="space-y-3">
+                                <Label htmlFor="nextFollowUpDate" className="text-sm text-muted-foreground">Next Follow-up Date (Optional)</Label>
+                                <Input 
+                                    id="nextFollowUpDate"
+                                    type="date"
+                                    className="font-medium w-full sm:w-1/2"
+                                    value={nextFollowUpDate}
+                                    onChange={(e) => setNextFollowUpDate(e.target.value)}
                                 />
                             </div>
 

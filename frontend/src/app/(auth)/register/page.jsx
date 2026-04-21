@@ -1,20 +1,40 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { registerUser } from "@/services/auth.service";
 import useAuthStore from "@/store/auth.store";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { User, Mail, Lock, ShieldCheck, ArrowRight, Activity } from "lucide-react";
+import { User, Mail, Lock, ShieldCheck, ArrowRight, Activity, Loader2 } from "lucide-react";
 
 export default function RegisterPage() {
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
+    const [isHydrated, setIsHydrated] = useState(false);
 
-    const setAuth = useAuthStore((state) => state.setAuth);
+    const { user, setAuth, loadAuth } = useAuthStore();
     const router = useRouter();
+
+    useEffect(() => {
+        loadAuth();
+        setIsHydrated(true);
+    }, [loadAuth]);
+
+    useEffect(() => {
+        if (isHydrated && user) {
+            router.push("/dashboard");
+        }
+    }, [user, isHydrated, router]);
+
+    if (!isHydrated || user) {
+        return (
+            <div className="h-screen w-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
+                <Loader2 className="w-10 h-10 animate-spin text-primary" />
+            </div>
+        );
+    }
 
     const handleRegister = async () => {
         if (!name || !email || !password) {

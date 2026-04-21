@@ -16,8 +16,14 @@ const consultationSchema = new mongoose.Schema(
         diagnosis: {
             type: String,
         },
+        icdCode: {
+            type: String,
+        },
         prescription: {
             type: String,
+        },
+        nextFollowUpDate: {
+            type: Date,
         },
         medicines: [
             {

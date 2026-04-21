@@ -28,17 +28,30 @@ exports.issueMedicine = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Medicine is already issued' });
         }
 
-        // 🔥 REDUCE INVENTORY & ATTACH PRICE
-        const inventory = await Medicine.findOne({ medicineName: med.name });
+        // 🔥 REDUCE INVENTORY (FEFO Logic: First Expired First Out)
+        // Find non-expired batches sorted by earliest expiry date
+        const inventory = await Medicine.findOne({ 
+            medicineName: med.name,
+            stock: { $gte: med.quantity },
+            expiryDate: { $gt: new Date() } // Exclude expired medicines
+        }).sort({ expiryDate: 1 });
+
         if (inventory) {
-            if (inventory.stock < med.quantity) {
-                 return res.status(400).json({ success: false, message: 'Not enough stock in inventory!' });
-            }
             inventory.stock -= med.quantity;
-            med.price = inventory.price || 0; // Lock in the current price
+            med.price = inventory.price || 0; // Lock in the current price from the specific batch
             await inventory.save();
         } else {
-            return res.status(404).json({ success: false, message: `Medicine "${med.name}" not found in inventory` });
+            // Check if it's just out of stock or all expired
+            const expiredCheck = await Medicine.findOne({ 
+                medicineName: med.name,
+                expiryDate: { $lte: new Date() }
+            });
+            
+            const errorMsg = expiredCheck 
+                ? `Cannot issue "${med.name}": Available stock is expired.`
+                : `Insufficient stock or medicine "${med.name}" not found in inventory.`;
+                
+            return res.status(400).json({ success: false, message: errorMsg });
         }
 
         med.status = "Issued";

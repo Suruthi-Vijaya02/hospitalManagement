@@ -93,7 +93,7 @@ export default function PharmacyPage() {
                         <input 
                             type="text" 
                             placeholder="Find by UPID..." 
-                            className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl py-3 pl-10 pr-4 text-sm w-full md:w-64 focus:ring-2 focus:ring-primary/20 transition-all outline-none uppercase font-mono tracking-wider dark:text-white"
+                            className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 rounded-2xl py-3 pl-10 pr-4 text-sm w-full md:w-64 focus:ring-2 focus:ring-primary/20 transition-all outline-none uppercase font-mono tracking-wider dark:text-white"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
@@ -101,7 +101,7 @@ export default function PharmacyPage() {
                     <button 
                         onClick={fetchQueue}
                         disabled={loading}
-                        className="p-3 bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-primary transition-all rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm disabled:opacity-50"
+                        className="p-3 bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-primary transition-all rounded-2xl border border-slate-300 dark:border-slate-700 shadow-sm disabled:opacity-50"
                     >
                         <RefreshCcw className={`w-5 h-5 ${loading ? "animate-spin" : ""}`} />
                     </button>
@@ -133,7 +133,7 @@ export default function PharmacyPage() {
                 {filteredQueue.length === 0 && !loading ? (
                     <motion.div 
                         variants={item}
-                        className="flex flex-col items-center justify-center py-32 bg-slate-50/50 dark:bg-slate-900/50 rounded-[3rem] border border-dashed border-slate-200 dark:border-slate-800"
+                        className="flex flex-col items-center justify-center py-32 bg-slate-50/50 dark:bg-slate-900/50 rounded-[3rem] border border-dashed border-slate-300 dark:border-slate-800"
                     >
                         <div className="w-24 h-24 bg-white dark:bg-slate-900 rounded-[2.5rem] flex items-center justify-center mb-6 shadow-sm">
                              <Pill className="w-12 h-12 text-slate-200" />
@@ -149,12 +149,12 @@ export default function PharmacyPage() {
                             key={q._id}
                             layout
                             variants={item}
-                            className="glass-card overflow-hidden border border-slate-200/50 dark:border-white/10 group shadow-sm hover:shadow-xl hover:shadow-primary/5 transition-all duration-500"
+                            className="glass-card overflow-hidden border border-slate-300/50 dark:border-white/10 group shadow-sm hover:shadow-xl hover:shadow-primary/5 transition-all duration-500"
                         >
                             {/* Card Header */}
                             <div className="px-8 py-6 bg-slate-50/50 dark:bg-white/5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
                                 <div className="flex items-center gap-5">
-                                    <div className="w-14 h-14 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+                                    <div className="w-14 h-14 rounded-2xl bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-800 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
                                         <PackageCheck className="w-7 h-7" />
                                     </div>
                                     <div>

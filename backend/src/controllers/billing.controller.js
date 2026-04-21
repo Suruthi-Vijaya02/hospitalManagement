@@ -3,6 +3,9 @@ const PharmacyQueue = require("../models/PharmacyQueue.model");
 const Lab = require("../models/Lab.model");
 const Bill = require("../models/Bill.model");
 const Patient = require("../models/Patient.model");
+const Admission = require("../models/Admission.model");
+const AuditLog = require("../models/AuditLog.model");
+const { generateInvoicePDF } = require("../services/invoice.service");
 
 exports.generateBill = async (req, res) => {
     try {
@@ -37,7 +40,32 @@ exports.generateBill = async (req, res) => {
             });
         });
 
-        const total = consultationFee + labTotal + medicineTotal;
+        // 🔹 IPD CHARGES (BED STAYS)
+        const admissions = await Admission.find({ upid: { $regex: new RegExp(`^${upid}$`, "i") } }).populate('bedId');
+
+        let ipdTotal = 0;
+        admissions.forEach((a) => {
+            if (a.bedId) {
+                const admitDate = new Date(a.admitDate);
+                const dischargeDate = a.dischargeDate ? new Date(a.dischargeDate) : new Date();
+
+                // Calculate days (min 1 day)
+                const diffTime = Math.abs(dischargeDate - admitDate);
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
+
+                ipdTotal += diffDays * (a.bedId.pricePerDay || 0);
+            }
+        });
+
+        // 🔹 FETCH SAVED BILL STATUS
+        let savedBill = await Bill.findOne({ upid: { $regex: new RegExp(`^${upid}$`, "i") } });
+
+        let miscTotal = 0;
+        if (savedBill) {
+            miscTotal = savedBill.otherCharges?.reduce((sum, item) => sum + (item.amount || 0), 0) || 0;
+        }
+
+        const total = consultationFee + labTotal + medicineTotal + ipdTotal + miscTotal;
 
         const patient = await Patient.findOne({ upid: { $regex: new RegExp(`^${upid}$`, "i") } });
         if (!patient) {
@@ -47,16 +75,16 @@ exports.generateBill = async (req, res) => {
             });
         }
 
-        // 🔹 FETCH SAVED BILL STATUS
-        let savedBill = await Bill.findOne({ upid: { $regex: new RegExp(`^${upid}$`, "i") } });
         if (!savedBill) {
-            savedBill = await Bill.create({ 
-                upid, 
+            savedBill = await Bill.create({
+                upid,
                 patientId: patient._id,
                 totalAmount: total,
                 consultationFee,
                 labCharges: labTotal,
                 medicineCharges: medicineTotal,
+                ipdCharges: ipdTotal,
+                miscTotal: 0
             });
         } else {
             // update total dynamically
@@ -64,7 +92,9 @@ exports.generateBill = async (req, res) => {
             savedBill.consultationFee = consultationFee;
             savedBill.labCharges = labTotal;
             savedBill.medicineCharges = medicineTotal;
-            
+            savedBill.ipdCharges = ipdTotal;
+            savedBill.miscTotal = miscTotal;
+
             // Re-calc status dynamically in case totals grew
             if (total === 0) {
                 savedBill.status = 'Paid';
@@ -75,7 +105,7 @@ exports.generateBill = async (req, res) => {
             } else {
                 savedBill.status = 'Unpaid';
             }
-            
+
             await savedBill.save();
         }
 
@@ -87,7 +117,10 @@ exports.generateBill = async (req, res) => {
                 consultationFee,
                 labTotal,
                 medicineTotal,
+                ipdTotal,
+                miscTotal,
                 total,
+                otherCharges: savedBill?.otherCharges || [],
                 status: savedBill?.status || "Unpaid",
                 amountPaid: savedBill?.amountPaid || 0,
                 consultations,
@@ -146,6 +179,15 @@ exports.payBill = async (req, res) => {
 
         await bill.save();
 
+        await AuditLog.create({
+            user: req.user.id,
+            action: "PAY_BILL",
+            targetUpid: upid,
+            details: { amountPaid: bill.amountPaid, status: bill.status },
+            ip: req.ip,
+            userAgent: req.get("user-agent")
+        });
+
         res.json({
             success: true,
             data: bill
@@ -155,5 +197,86 @@ exports.payBill = async (req, res) => {
             success: false,
             message: error.message,
         });
+    }
+};
+
+// POST /billing/misc
+exports.addMiscCharge = async (req, res) => {
+    console.log("AddMiscCharge hit with body:", req.body);
+    try {
+        const { upid, description, amount } = req.body;
+
+        if (!upid || !description || !amount) {
+            return res.status(400).json({ success: false, message: 'UPID, description and amount are required' });
+        }
+
+        let bill = await Bill.findOne({ upid: { $regex: new RegExp(`^${upid}$`, "i") } });
+
+        if (!bill) {
+            const patient = await Patient.findOne({ upid: { $regex: new RegExp(`^${upid}$`, "i") } });
+            if (!patient) return res.status(404).json({ success: false, message: 'Patient not found' });
+
+            bill = new Bill({
+                upid: patient.upid,
+                patientId: patient._id,
+                totalAmount: Number(amount),
+                otherCharges: [{ description, amount: Number(amount) }],
+                miscTotal: Number(amount)
+            });
+        } else {
+            bill.otherCharges.push({ description, amount: Number(amount) });
+            bill.miscTotal += Number(amount);
+            bill.totalAmount += Number(amount);
+
+            // Update status
+            if (bill.amountPaid >= bill.totalAmount) {
+                bill.status = 'Paid';
+            } else if (bill.amountPaid > 0) {
+                bill.status = 'Partial';
+            } else {
+                bill.status = 'Unpaid';
+            }
+        }
+
+        await bill.save();
+
+        // Create Audit Log
+        await AuditLog.create({
+            user: req.user.id,
+            action: "ADD_MISC_CHARGE",
+            targetUpid: upid,
+            details: { description, amount },
+            ip: req.ip,
+            userAgent: req.get("user-agent")
+        });
+
+        res.json({ success: true, data: bill });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+exports.printInvoice = async (req, res) => {
+    try {
+        const { upid } = req.params;
+        const patient = await Patient.findOne({ upid: { $regex: new RegExp(`^${upid}$`, "i") } });
+        if (!patient) return res.status(404).json({ success: false, error: "Patient not found" });
+
+        // Get fresh bill data (using our existing logic)
+        // For simplicity, we'll call generateBill logic or just find existing
+        const bill = await Bill.findOne({ upid: { $regex: new RegExp(`^${upid}$`, "i") } });
+        if (!bill) return res.status(404).json({ success: false, error: "No bill found for this patient" });
+
+        const pdfBuffer = await generateInvoicePDF(bill, patient);
+
+        res.setHeader("Content-Type", "application/json"); // Default
+        res.set({
+            "Content-Type": "application/pdf",
+            "Content-Disposition": `attachment; filename=invoice_${upid}.pdf`,
+            "Content-Length": pdfBuffer.length,
+        });
+        res.send(pdfBuffer);
+    } catch (error) {
+        console.error("PDF Generation Error:", error);
+        res.status(500).json({ success: false, error: "Failed to generate invoice PDF" });
     }
 };

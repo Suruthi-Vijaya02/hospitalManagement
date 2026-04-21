@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import api from "@/lib/axios";
+import CustomSelect from "@/components/common/CustomSelect";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
     Users, 
@@ -14,7 +15,8 @@ import {
     CheckCircle2,
     AlertCircle,
     Search,
-    Filter
+    Filter,
+    ChevronDown
 } from "lucide-react";
 
 export default function AdminPage() {
@@ -64,7 +66,7 @@ export default function AdminPage() {
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {/* Header Area */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden relative">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-300 dark:border-slate-800 shadow-sm overflow-hidden relative">
                 <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -mr-32 -mt-32" />
                 
                 <div className="relative z-10">
@@ -86,14 +88,14 @@ export default function AdminPage() {
                         <input 
                             type="text" 
                             placeholder="Search by name or email..." 
-                            className="bg-slate-100 dark:bg-slate-800 border-none rounded-2xl py-3 pl-11 pr-4 text-sm w-full md:w-80 text-white focus:ring-4 focus:ring-primary/10 outline-none transition-all placeholder:text-slate-500"
+                            className="bg-white border border-slate-300 rounded-2xl py-3 pl-11 pr-4 text-sm w-full md:w-80 text-slate-900 focus:ring-4 focus:ring-primary/10 outline-none transition-all placeholder:text-slate-500"
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                         />
                     </div>
                     <button 
                         onClick={fetchUsers}
-                        className="p-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                        className="p-3 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-2xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
                     >
                         <RefreshCcw className={`w-5 h-5 text-slate-600 dark:text-slate-400 ${loading ? 'animate-spin' : ''}`} />
                     </button>
@@ -101,7 +103,7 @@ export default function AdminPage() {
             </div>
 
             {/* Users Table */}
-            <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+            <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-300 dark:border-slate-800 shadow-sm overflow-visible">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                         <thead>
@@ -155,21 +157,17 @@ export default function AdminPage() {
                                             </div>
                                         </td>
                                         <td className="px-8 py-6 text-right">
-                                            <div className="flex items-center justify-end gap-2">
-                                                <select 
-                                                    className="bg-slate-100 dark:bg-slate-800 border-none rounded-xl py-2 px-3 text-[11px] font-bold text-white focus:ring-4 focus:ring-primary/10 outline-none transition-all cursor-pointer appearance-none pr-8 relative"
+                                            <div className="flex items-center justify-end gap-3">
+                                                <CustomSelect 
+                                                    options={["Admin", "Doctor", "Receptionist", "Lab", "Pharmacist"]}
                                                     value={user.role}
-                                                    onChange={(e) => handleRoleChange(user._id, e.target.value)}
+                                                    onChange={(newRole) => handleRoleChange(user._id, newRole)}
                                                     disabled={updating === user._id}
-                                                >
-                                                    <option value="Admin">Admin</option>
-                                                    <option value="Doctor">Doctor</option>
-                                                    <option value="Receptionist">Receptionist</option>
-                                                    <option value="Lab">Lab</option>
-                                                    <option value="Pharmacist">Pharmacist</option>
-                                                </select>
+                                                    variant="light"
+                                                    className="min-w-[130px]"
+                                                />
                                                 {updating === user._id && (
-                                                    <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                                                    <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin flex-shrink-0" />
                                                 )}
                                             </div>
                                         </td>
